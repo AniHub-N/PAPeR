@@ -1,14 +1,18 @@
-from router import PromptRouter
+try:
+    from .router import PromptRouter
+except ImportError:  # pragma: no cover - supports direct script execution
+    from router import PromptRouter
 
-router = PromptRouter()
 
-while True:
+def main() -> None:
+    router = PromptRouter()
+    while True:
+        prompt = input("> ").strip()
+        if prompt.lower() in {"quit", "exit"}:
+            break
+        result = router.route(prompt)
+        print(result)
 
-    prompt = input("> ")
 
-    if prompt.lower() == "quit":
-        break
-
-    route = router.route(prompt)
-
-    print(route.value)
+if __name__ == "__main__":
+    main()
