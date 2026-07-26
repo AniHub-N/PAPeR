@@ -49,7 +49,7 @@ QUESTION_START = {
 EXPLANATION_START = {"explain", "describe", "tell", "summarize"}
 
 EDITING_TASKS = {"edit", "modify", "refactor", "rename", "move", "delete", "fix", "update", "remove"}
-SEARCHING_TASKS = {"search", "find", "locate", "open", "inspect", "look"}
+SEARCHING_TASKS = {"search", "find", "locate", "open", "inspect", "look", "show", "list", "where"}
 DEBUGGING_TASKS = {"debug", "trace", "investigate", "diagnose"}
 REFACTORING_TASKS = {"refactor", "rewrite", "clean"}
 GENERATION_TASKS = {"write", "generate", "create", "implement", "build", "add", "make"}

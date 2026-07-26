@@ -37,6 +37,7 @@ RULES = [
     Rule(name="refactor_intent", route=Route.CLAUDE, weight=7, requires=("is_refactor_intent",)),
     Rule(name="project_edit_request", route=Route.CLAUDE, weight=8, requires=("is_project_edit_request",)),
     Rule(name="project_generation_request", route=Route.CLAUDE, weight=7, requires=("is_project_generation_request",)),
+    Rule(name="mixed_action_request", route=Route.CLAUDE, weight=10, requires=("is_mixed_action_request",)),
     Rule(name="explanation_intent", route=Route.SIDE_LLM, weight=8, requires=("is_explanation_intent",)),
     Rule(name="comparison_intent", route=Route.SIDE_LLM, weight=6, requires=("is_comparison_intent",)),
     Rule(name="question_intent", route=Route.SIDE_LLM, weight=6, requires=("is_question_intent",)),

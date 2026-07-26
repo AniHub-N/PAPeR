@@ -25,7 +25,10 @@ def _contains_word(text: str, terms: set[str]) -> bool:
 
 def _contains_actionable_verb(text: str) -> bool:
     verbs = patterns.EDITING_TASKS | patterns.SEARCHING_TASKS | patterns.DEBUGGING_TASKS | patterns.REFACTORING_TASKS | patterns.GENERATION_TASKS
-    return any(re.search(rf"\b{re.escape(term)}\b", text) for term in verbs)
+    escaped_verbs = "|".join(sorted((re.escape(term) for term in verbs), key=len, reverse=True))
+    if re.search(rf"^(?:{escaped_verbs})\b", text):
+        return True
+    return bool(re.search(rf"\b(?:and|then|,|;)\s+(?:{escaped_verbs})\b", text))
 
 
 def _extract_intent_and_object(text: str) -> tuple[str, str]:
@@ -194,9 +197,31 @@ def extract_features(prompt: str) -> PromptFeatures:
     )
 
     features.is_explanation_intent = features.is_explanation or features.has_explanation_phrase or features.has_comparison_phrase
+    features.is_mixed_action_request = (
+        has_actionable_verb
+        and (
+            features.is_explanation_intent
+            or features.has_explanation_phrase
+            or features.has_comparison_phrase
+        )
+        and (
+            features.is_editing
+            or features.is_debugging
+            or features.is_refactoring
+            or features.is_searching
+            or features.is_generation
+            or features.is_project_edit_request
+            or features.is_project_generation_request
+            or features.is_actionable_code_request
+        )
+    )
     features.is_comparison_intent = features.has_comparison_phrase
     features.is_debug_intent = features.is_debugging or features.has_stacktrace
-    features.is_search_intent = features.is_searching or features.mentions_repository_term
+    features.is_search_intent = (
+        features.is_searching
+        or features.mentions_repository_term
+        or (features.is_question and bool(re.search(r"\b(where|show|list|find|locate|open|inspect|look|which files use|which file uses|what files use|what file uses)\b", lower)))
+    )
     features.is_refactor_intent = features.is_refactoring or (features.is_editing and features.has_contextual_reference)
     features.is_edit_intent = features.is_editing or (
         features.has_request_phrase

@@ -221,6 +221,40 @@ def test_mixed_explanation_and_implementation_prompts():
     )
 
 
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("Explain OAuth and implement it.", Route.CLAUDE),
+        ("Tell me where JWT is configured and fix it.", Route.CLAUDE),
+        ("Summarize AuthService then refactor it.", Route.CLAUDE),
+    ],
+)
+def test_mixed_explanation_and_action_prompts(prompt, expected):
+    result = route(prompt)
+    assert result.route == expected, (
+        f"Expected {expected.value} for mixed prompt {prompt!r}, got {result.route.value} "
+        f"with scores {result.claude_score}/{result.side_score} and rules {result.fired_rules}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("Where is auth.ts?", Route.CLAUDE),
+        ("Which files use PostHog?", Route.CLAUDE),
+        ("List all routes.", Route.CLAUDE),
+        ("Show me the routing layer.", Route.CLAUDE),
+        ("Show me auth.ts.", Route.CLAUDE),
+    ],
+)
+def test_code_lookup_and_inspection_prompts(prompt, expected):
+    result = route(prompt)
+    assert result.route == expected, (
+        f"Expected {expected.value} for lookup prompt {prompt!r}, got {result.route.value} "
+        f"with scores {result.claude_score}/{result.side_score} and rules {result.fired_rules}"
+    )
+
+
 def test_router_returns_actionable_debug_metadata():
     result = route("Refactor LoginController")
     assert 0.0 <= result.confidence <= 1.0

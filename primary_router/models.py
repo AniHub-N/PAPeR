@@ -56,6 +56,7 @@ class PromptFeatures:
     is_refactor_intent: bool = False
     is_edit_intent: bool = False
     is_question_intent: bool = False
+    is_mixed_action_request: bool = False
     detected_intent: str = ""
     detected_object: str = ""
     detected_object_kind: str = ""
