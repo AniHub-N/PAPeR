@@ -1,0 +1,199 @@
+What is OAuth?
+What is JWT?
+Explain Docker.
+Explain Kubernetes.
+What is Redis?
+How does TCP work?
+Difference between HTTP and HTTPS.
+Explain REST APIs.
+What is GraphQL?
+How does Git work?
+Teach me BFS.
+Teach me DFS.
+Explain Dijkstra's algorithm.
+What is dynamic programming?
+Explain binary search.
+What is a hash map?
+How does a compiler work?
+What is a mutex?
+Explain multithreading.
+What is dependency injection?
+Write a React component.
+Write a Python decorator.
+Generate a regex for email validation.
+Write SQL to find duplicate rows.
+Implement quicksort.
+Implement merge sort.
+Implement Dijkstra.
+Implement BFS.
+Write a binary search function.
+Generate a Dockerfile.
+Create a Flask API.
+Write a FastAPI example.
+Generate a JWT in Python.
+Create a PostgreSQL schema.
+Write a linked list.
+Implement an LRU Cache.
+Create a Trie.
+Write a C++ stack.
+Generate HTML for a login page.
+Create a CSS navbar.
+How do I implement OAuth?
+How do I create JWT authentication?
+Why is Redis fast?
+Explain React hooks.
+Explain useEffect.
+Compare Flask vs FastAPI.
+Compare SQL and NoSQL.
+Should I use MongoDB?
+When should I use Kafka?
+Explain event sourcing.
+Explain CQRS.
+Explain the CAP theorem.
+Explain ACID.
+Why is Rust memory safe?
+How does async/await work?
+Explain WebSockets.
+What is an ORM?
+What is Docker Compose?
+Explain OAuth PKCE.
+Explain gRPC.
+Fix src/auth.py.
+Open src/main.py.
+Edit app.py.
+Search login.py.
+Refactor models/user.py.
+Rename auth.py.
+Delete cache.py.
+Move utils.py.
+Update requirements.txt.
+Modify Dockerfile.
+Search the repository for UserService.
+Find LoginController.
+Open AuthMiddleware.
+Locate config.py.
+Find every TODO.
+List all routes.
+Find duplicate functions.
+Search for JWT usage.
+Show every API endpoint.
+Search every migration.
+Fix this traceback.
+Debug this exception.
+Help with this stack trace.
+Why is this segmentation fault happening?
+Resolve this runtime error.
+This Python traceback is failing.
+Panic: nil pointer dereference.
+Fix this compiler error.
+Debug this crash.
+Explain this exception in my code.
+Implement auth.
+Implement login.
+Implement logout.
+Add caching.
+Add pagination.
+Create middleware.
+Refactor the controller.
+Rename UserService.
+Update the API.
+Remove dead code.
+Create a migration.
+Fix authentication.
+Refactor the repository.
+Move business logic.
+Split this module.
+Fix this code:
+
+def login():
+    pass
+
+Refactor this:
+
+function test(){}
+
+Debug this:
+
+int main(){}
+
+Improve this:
+
+func main(){}
+
+Optimize this SQL:
+
+SELECT *
+
+Rewrite this Java:
+
+class User{}
+
+Refactor this Rust code.
+Review this TypeScript.
+Improve this React component.
+Fix this Bash script.
+Where is LoginController defined?
+Find UserRepository.
+Search AuthMiddleware.
+Open DatabaseManager.
+Locate JwtService.
+Find NotificationHandler.
+Rename UserController.
+Refactor EmailService.
+Modify AuthRepository.
+Open CacheManager.
+Implement OAuth.
+Implement JWT.
+Implement Redis.
+Implement Docker.
+Create auth.
+Create login.
+Write middleware.
+Write an endpoint.
+Generate authentication.
+Create an API.
+Can you fix my authentication?
+Can you update the login page?
+Can you search where this function is used?
+Can you refactor my middleware?
+Can you clean this code?
+Can you rename this variable?
+Can you move this into another file?
+Can you update my API?
+Can you remove dead code?
+Can you debug this?
+Can you explain OAuth?
+Can you teach me Redis?
+Can you explain JWT?
+Can you compare React and Vue?
+Can you show me how Docker works?
+Can you explain binary search?
+Can you teach me SQL joins?
+Can you explain WebSockets?
+Can you explain caching?
+Can you compare FastAPI and Flask?
+Implement OAuth authentication.
+Implement JWT authentication.
+Implement login using OAuth.
+Write OAuth middleware.
+Create login middleware.
+Generate JWT middleware.
+Implement Redis cache.
+Explain login middleware.
+Where is OAuth configured?
+Search for JWT implementation.
+Fix the failing tests.
+Make this async.
+Why is this function slow?
+Extract this into a helper.
+Move this into utils.
+Clean this file up.
+Update imports.
+Find every place this is used.
+Rename this class everywhere.
+Convert this to TypeScript.
+Replace all print statements with logging.
+Add retries to this API.
+Remove duplicate code.
+Implement the TODO.
+Finish this function.

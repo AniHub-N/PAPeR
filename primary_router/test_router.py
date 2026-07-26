@@ -1,152 +1,262 @@
-from router import PromptRouter
-from models import Route
+import pytest
 
-router = PromptRouter()
+from primary_router.models import Route
+from primary_router.router import route
 
-TEST_CASES = [
 
-    # ==========================================================
-    # GENERAL KNOWLEDGE (Should go to Side LLM)
-    # ==========================================================
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("What is OAuth?", Route.SIDE_LLM),
+        ("What is JWT?", Route.SIDE_LLM),
+        ("Explain Docker.", Route.SIDE_LLM),
+        ("Explain Kubernetes.", Route.SIDE_LLM),
+        ("What is Redis?", Route.SIDE_LLM),
+        ("How does TCP work?", Route.SIDE_LLM),
+        ("Difference between HTTP and HTTPS.", Route.SIDE_LLM),
+        ("Explain REST APIs.", Route.SIDE_LLM),
+        ("What is GraphQL?", Route.SIDE_LLM),
+        ("How does Git work?", Route.SIDE_LLM),
+        ("Teach me BFS.", Route.SIDE_LLM),
+        ("Teach me DFS.", Route.SIDE_LLM),
+        ("Explain Dijkstra's algorithm.", Route.SIDE_LLM),
+        ("What is dynamic programming?", Route.SIDE_LLM),
+        ("Explain binary search.", Route.SIDE_LLM),
+        ("What is a hash map?", Route.SIDE_LLM),
+        ("How does a compiler work?", Route.SIDE_LLM),
+        ("What is a mutex?", Route.SIDE_LLM),
+        ("Explain multithreading.", Route.SIDE_LLM),
+        ("What is dependency injection?", Route.SIDE_LLM),
+        ("Explain CAP theorem.", Route.SIDE_LLM),
+        ("What is Kubernetes?", Route.SIDE_LLM),
+    ],
+)
+def test_general_knowledge_prompts(prompt, expected):
+    result = route(prompt)
+    assert result.route == expected, (
+        f"Expected {expected.value} for {prompt!r}, got {result.route.value} "
+        f"with scores {result.claude_score}/{result.side_score} and rules {result.fired_rules}"
+    )
 
-    ("What is a binary tree?", Route.SIDE_LLM),
-    ("Explain BFS.", Route.SIDE_LLM),
-    ("Explain DFS.", Route.SIDE_LLM),
-    ("What is OAuth?", Route.SIDE_LLM),
-    ("How does TCP work?", Route.SIDE_LLM),
-    ("Difference between HTTP and HTTPS?", Route.SIDE_LLM),
-    ("Explain recursion.", Route.SIDE_LLM),
-    ("Explain dynamic programming.", Route.SIDE_LLM),
-    ("How does Python's GIL work?", Route.SIDE_LLM),
-    ("What is Docker?", Route.SIDE_LLM),
-    ("Explain Kubernetes.", Route.SIDE_LLM),
-    ("How does Git work?", Route.SIDE_LLM),
-    ("What is REST?", Route.SIDE_LLM),
-    ("Explain GraphQL.", Route.SIDE_LLM),
-    ("What is an AVL tree?", Route.SIDE_LLM),
-    ("What is a heap?", Route.SIDE_LLM),
-    ("Explain merge sort.", Route.SIDE_LLM),
-    ("Explain quicksort.", Route.SIDE_LLM),
-    ("What is a hash table?", Route.SIDE_LLM),
-    ("Explain JWT.", Route.SIDE_LLM),
 
-    # ==========================================================
-    # PROJECT / CODEBASE (Should go to Claude)
-    # ==========================================================
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("Write a React component.", Route.CLAUDE),
+        ("Write a Python decorator.", Route.CLAUDE),
+        ("Generate a regex.", Route.CLAUDE),
+        ("Write SQL.", Route.CLAUDE),
+        ("Implement quicksort.", Route.CLAUDE),
+        ("Implement merge sort.", Route.CLAUDE),
+        ("Implement BFS.", Route.CLAUDE),
+        ("Implement Dijkstra.", Route.CLAUDE),
+        ("Generate Dockerfile.", Route.CLAUDE),
+        ("Create Flask API.", Route.CLAUDE),
+        ("Write FastAPI example.", Route.CLAUDE),
+        ("Create Trie.", Route.CLAUDE),
+        ("Write linked list.", Route.CLAUDE),
+        ("Generate JWT.", Route.CLAUDE),
+        ("Create CSS navbar.", Route.CLAUDE),
+        ("Generate SQL.", Route.CLAUDE),
+        ("Write unit tests.", Route.CLAUDE),
+        ("Create login page.", Route.CLAUDE),
+    ],
+)
+def test_generic_code_generation_prompts(prompt, expected):
+    result = route(prompt)
+    assert result.route == expected, (
+        f"Expected {expected.value} for {prompt!r}, got {result.route.value} "
+        f"with scores {result.claude_score}/{result.side_score} and rules {result.fired_rules}"
+    )
 
-    ("Fix auth.py", Route.CLAUDE),
-    ("Implement JWT authentication", Route.CLAUDE),
-    ("Refactor auth.ts", Route.CLAUDE),
-    ("Update src/main.py", Route.CLAUDE),
-    ("Debug this traceback", Route.CLAUDE),
-    ("Fix the failing unit tests", Route.CLAUDE),
-    ("Search the repository for UserService", Route.CLAUDE),
-    ("Where is LoginController defined?", Route.CLAUDE),
-    ("Update README.md", Route.CLAUDE),
-    ("Modify package.json", Route.CLAUDE),
-    ("Create a new React component", Route.CLAUDE),
-    ("Add logging to api.py", Route.CLAUDE),
-    ("Fix bug in server.go", Route.CLAUDE),
-    ("Refactor src/api/user.ts", Route.CLAUDE),
-    ("Edit docker-compose.yml", Route.CLAUDE),
-    ("Implement caching in cache.py", Route.CLAUDE),
-    ("Remove duplicate code from utils.py", Route.CLAUDE),
-    ("Optimize db/query.sql", Route.CLAUDE),
-    ("Search the codebase", Route.CLAUDE),
-    ("Open src/index.js", Route.CLAUDE),
 
-    # ==========================================================
-    # STACK TRACES
-    # ==========================================================
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("Fix src/auth.py", Route.CLAUDE),
+        ("Edit app.py", Route.CLAUDE),
+        ("Modify Dockerfile", Route.CLAUDE),
+        ("Rename auth.py", Route.CLAUDE),
+        ("Move utils.py", Route.CLAUDE),
+        ("Update requirements.txt", Route.CLAUDE),
+        ("Refactor models/user.py", Route.CLAUDE),
+    ],
+)
+def test_file_operations_prompts(prompt, expected):
+    result = route(prompt)
+    assert result.route == expected, (
+        f"Expected {expected.value} for {prompt!r}, got {result.route.value} "
+        f"with scores {result.claude_score}/{result.side_score} and rules {result.fired_rules}"
+    )
 
-    ("Traceback (most recent call last)...", Route.CLAUDE),
-    ("ValueError: invalid literal", Route.CLAUDE),
-    ("TypeError: object is not callable", Route.CLAUDE),
-    ("Segmentation fault", Route.CLAUDE),
-    ("panic: runtime error", Route.CLAUDE),
-    ("Exception in thread main", Route.CLAUDE),
-    ("NullPointerException", Route.CLAUDE),
-    ("Error: Cannot find module", Route.CLAUDE),
 
-    # ==========================================================
-    # FILE PATHS
-    # ==========================================================
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("Search UserService", Route.CLAUDE),
+        ("Find LoginController", Route.CLAUDE),
+        ("Open AuthMiddleware", Route.CLAUDE),
+        ("Locate config.py", Route.CLAUDE),
+        ("Search JWT usage", Route.CLAUDE),
+        ("Find TODOs", Route.CLAUDE),
+        ("List all routes", Route.CLAUDE),
+    ],
+)
+def test_repository_search_prompts(prompt, expected):
+    result = route(prompt)
+    assert result.route == expected, (
+        f"Expected {expected.value} for {prompt!r}, got {result.route.value} "
+        f"with scores {result.claude_score}/{result.side_score} and rules {result.fired_rules}"
+    )
 
-    ("src/main.py", Route.CLAUDE),
-    ("backend/api/routes.py", Route.CLAUDE),
-    ("frontend/src/App.tsx", Route.CLAUDE),
-    ("lib/utils.js", Route.CLAUDE),
-    ("main.cpp", Route.CLAUDE),
-    ("server.go", Route.CLAUDE),
-    ("index.html", Route.CLAUDE),
 
-    # ==========================================================
-    # CODE BLOCKS
-    # ==========================================================
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("Fix this traceback.", Route.CLAUDE),
+        ("Debug this exception.", Route.CLAUDE),
+        ("Help with this stack trace.", Route.CLAUDE),
+        ("Resolve this runtime error.", Route.CLAUDE),
+        ("Fix compiler error.", Route.CLAUDE),
+    ],
+)
+def test_stack_trace_prompts(prompt, expected):
+    result = route(prompt)
+    assert result.route == expected, (
+        f"Expected {expected.value} for {prompt!r}, got {result.route.value} "
+        f"with scores {result.claude_score}/{result.side_score} and rules {result.fired_rules}"
+    )
 
-    (
-        """```python
-def hello():
-    pass
-```""",
-        Route.CLAUDE,
-    ),
 
-    (
-        """```javascript
-console.log("Hello")
-```""",
-        Route.CLAUDE,
-    ),
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("Implement auth.", Route.CLAUDE),
+        ("Implement login.", Route.CLAUDE),
+        ("Create middleware.", Route.CLAUDE),
+        ("Rename UserService.", Route.CLAUDE),
+        ("Update the API.", Route.CLAUDE),
+        ("Refactor repository.", Route.CLAUDE),
+        ("Move business logic.", Route.CLAUDE),
+        ("Split this module.", Route.CLAUDE),
+        ("Review this code.", Route.CLAUDE),
+        ("Search LoginController.", Route.CLAUDE),
+        ("Move utils.py.", Route.CLAUDE),
+        ("Update requirements.txt.", Route.CLAUDE),
+    ],
+)
+def test_project_editing_prompts(prompt, expected):
+    result = route(prompt)
+    assert result.route == expected, (
+        f"Expected {expected.value} for {prompt!r}, got {result.route.value} "
+        f"with scores {result.claude_score}/{result.side_score} and rules {result.fired_rules}"
+    )
 
-    # ==========================================================
-    # EDGE CASES
-    # ==========================================================
 
-    ("Write a Python quicksort implementation", Route.SIDE_LLM),
-    ("Generate a regex for emails", Route.SIDE_LLM),
-    ("Write SQL to find duplicates", Route.SIDE_LLM),
-    ("How do I reverse a linked list?", Route.SIDE_LLM),
-    ("Implement Dijkstra's algorithm from scratch", Route.SIDE_LLM),
-    ("Write a React button component", Route.SIDE_LLM),
-    ("How do I center a div in CSS?", Route.SIDE_LLM),
-]
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("Can you fix my authentication?", Route.CLAUDE),
+        ("Can you rename this variable?", Route.CLAUDE),
+        ("Can you debug this?", Route.CLAUDE),
+        ("Can you clean this code?", Route.CLAUDE),
+        ("Can you update my API?", Route.CLAUDE),
+        ("Can you remove dead code?", Route.CLAUDE),
+    ],
+)
+def test_natural_language_edit_requests(prompt, expected):
+    result = route(prompt)
+    assert result.route == expected, (
+        f"Expected {expected.value} for {prompt!r}, got {result.route.value} "
+        f"with scores {result.claude_score}/{result.side_score} and rules {result.fired_rules}"
+    )
 
-passed = 0
-failed = 0
 
-print("=" * 80)
-print("RUNNING ROUTER TESTS")
-print("=" * 80)
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("Can you explain OAuth?", Route.SIDE_LLM),
+        ("Can you teach me Redis?", Route.SIDE_LLM),
+        ("Explain WebSockets.", Route.SIDE_LLM),
+        ("Explain React hooks.", Route.SIDE_LLM),
+        ("Compare Flask vs FastAPI.", Route.SIDE_LLM),
+        ("Explain Docker Compose.", Route.SIDE_LLM),
+    ],
+)
+def test_explanation_prompts(prompt, expected):
+    result = route(prompt)
+    assert result.route == expected, (
+        f"Expected {expected.value} for {prompt!r}, got {result.route.value} "
+        f"with scores {result.claude_score}/{result.side_score} and rules {result.fired_rules}"
+    )
 
-for i, (prompt, expected) in enumerate(TEST_CASES, start=1):
 
-    result = router.route(prompt)
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("Implement OAuth.", Route.CLAUDE),
+        ("Implement auth.", Route.CLAUDE),
+        ("Create login.", Route.CLAUDE),
+        ("Create API.", Route.CLAUDE),
+        ("Write middleware.", Route.CLAUDE),
+        ("Generate authentication.", Route.CLAUDE),
+        ("Implement Redis cache.", Route.CLAUDE),
+        ("Implement OAuth authentication.", Route.CLAUDE),
+    ],
+)
+def test_ambiguous_generation_prompts(prompt, expected):
+    result = route(prompt)
+    assert result.route == expected, (
+        f"Expected {expected.value} for {prompt!r}, got {result.route.value} "
+        f"with scores {result.claude_score}/{result.side_score} and rules {result.fired_rules}"
+    )
 
-    if result == expected:
-        print(f"[PASS] Test {i:02d}")
-        print(f"Prompt   : {prompt}")
-        print(f"Route    : {result.value}")
-        print("-" * 80)
-        passed += 1
 
-    else:
-        print(f"[FAIL] Test {i:02d}")
-        print(f"Prompt   : {prompt}")
-        print(f"Expected : {expected.value}")
-        print(f"Got      : {result.value}")
-        print("-" * 80)
-        failed += 1
+def test_mixed_explanation_and_implementation_prompts():
+    result = route("What is OAuth and implement it")
+    assert result.route == Route.CLAUDE, (
+        f"Expected {Route.CLAUDE.value} for mixed explanation/implementation prompt, "
+        f"got {result.route.value} with scores {result.claude_score}/{result.side_score} "
+        f"and rules {result.fired_rules}"
+    )
 
-print("\n" + "=" * 80)
-print("SUMMARY")
-print("=" * 80)
-print(f"Total Tests : {len(TEST_CASES)}")
-print(f"Passed      : {passed}")
-print(f"Failed      : {failed}")
-print(f"Accuracy    : {passed / len(TEST_CASES) * 100:.2f}%")
 
-if failed == 0:
-    print("\n🎉 All tests passed!")
-else:
-    print(f"\n⚠️  {failed} test(s) failed.")
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("Explain OAuth and implement it.", Route.CLAUDE),
+        ("Tell me where JWT is configured and fix it.", Route.CLAUDE),
+        ("Summarize AuthService then refactor it.", Route.CLAUDE),
+    ],
+)
+def test_mixed_explanation_and_action_prompts(prompt, expected):
+    result = route(prompt)
+    assert result.route == expected, (
+        f"Expected {expected.value} for mixed prompt {prompt!r}, got {result.route.value} "
+        f"with scores {result.claude_score}/{result.side_score} and rules {result.fired_rules}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        ("Where is auth.ts?", Route.CLAUDE),
+        ("Which files use PostHog?", Route.CLAUDE),
+        ("List all routes.", Route.CLAUDE),
+        ("Show me the routing layer.", Route.CLAUDE),
+        ("Show me auth.ts.", Route.CLAUDE),
+    ],
+)
+def test_code_lookup_and_inspection_prompts(prompt, expected):
+    result = route(prompt)
+    assert result.route == expected, (
+        f"Expected {expected.value} for lookup prompt {prompt!r}, got {result.route.value} "
+        f"with scores {result.claude_score}/{result.side_score} and rules {result.fired_rules}"
+    )
+
+
+def test_router_returns_actionable_debug_metadata():
+    result = route("Refactor LoginController")
+    assert 0.0 <= result.confidence <= 1.0
+    assert result.fired_rules
+    assert result.route in {Route.CLAUDE, Route.SIDE_LLM}
