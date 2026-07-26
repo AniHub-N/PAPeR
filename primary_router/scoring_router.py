@@ -64,6 +64,25 @@ QUESTION_START = re.compile(
     re.IGNORECASE,
 )
 
+# Read/exploration verb as the FIRST word — project-navigation intent. These
+# ("summarize the analytics subsystem", "show me the routing layer") are exactly
+# what the Sidecar answers off-quota using CLAUDE.md + project map + hot files.
+NAV_START = re.compile(
+    r"^\s*(summarize|show|list|describe|outline|overview|tell|find|locate|walk)\b",
+    re.IGNORECASE,
+)
+
+# A trailing edit command tacked onto a question ("... and fix it", "then
+# refactor it"): the MIXED case. Edit intent wins -> route to task (never split).
+# Requires an object pronoun so it does NOT fire on knowledge questions that just
+# mention an edit word ("difference between add and remove").
+EDIT_TRAILING = re.compile(
+    r"\b(fix|implement|refactor|rewrite|modify|update|add|remove|create|build|"
+    r"delete|rename|deploy|optimize|migrate|configure)\s+"
+    r"(it|them|this|that|these|those)\b",
+    re.IGNORECASE,
+)
+
 # Knowledge-question phrases that a single keyword misses.
 QUESTION_PHRASES = re.compile(
     r"(difference between|pros and cons|can you tell me|what does .+ mean|"
@@ -80,10 +99,6 @@ THIS_REFERENCE = re.compile(
     re.IGNORECASE,
 )
 
-# CamelCase or snake_case identifier — a codebase-specific symbol.
-# CamelCase needs 2+ humps so product names like "OAuth"/"REST" don't match.
-SYMBOL = re.compile(r"\b(?:[A-Z][a-z0-9]+){2,}\b|\b[a-z]+_[a-z0-9_]+\b")
-
 # Trailing question mark.
 ENDS_QUESTION = re.compile(r"\?\s*$")
 
@@ -99,13 +114,12 @@ class RouterConfig:
     w_edit_word: int = 1          # edit word not at the start (weaker)
     w_debug_word: int = 2
     w_code_keyword: int = 2
-    w_repo_word: int = 1
     w_this_reference: int = 2
     w_at_mention: int = 3
-    w_symbol: int = 2
 
-    # Negative weights push toward QUESTION (side LLM).
+    # Negative weights push toward QUESTION / navigation (side LLM).
     w_question_start: int = 3
+    w_nav_start: int = 3          # read/exploration verb at the start
     w_question_word: int = 1      # question word not at the start (weaker)
     w_question_phrase: int = 2
     w_ends_question: int = 1
@@ -182,6 +196,13 @@ class ScoringRouter:
         if score >= cfg.task_threshold:
             return RouteDecision(Route.CLAUDE, Band.CLEAR_TASK, score, reasons)
         if score <= cfg.question_threshold:
+            # Mixed guard: a would-be deflection that also carries a trailing
+            # edit command ("...and fix it") is a MIXED prompt -> never split,
+            # route to task (claude.md rule).
+            if EDIT_TRAILING.search(prompt):
+                return RouteDecision(
+                    Route.CLAUDE, Band.AMBIGUOUS, score, reasons + [("mixed_edit_guard", 0)]
+                )
             return RouteDecision(Route.SIDE_LLM, Band.CLEAR_QUESTION, score, reasons)
 
         # Ambiguous — hand to the tiebreaker if present, else default to task.
@@ -227,18 +248,17 @@ class ScoringRouter:
             add("debug_word", cfg.w_debug_word)
         if patterns.CODE_KEYWORDS.search(prompt):
             add("code_keyword", cfg.w_code_keyword)
-        if patterns.REPO_WORDS.search(prompt):
-            add("repo_word", cfg.w_repo_word)
         if THIS_REFERENCE.search(prompt):
             add("this_reference", cfg.w_this_reference)
         if AT_MENTION.search(prompt):
             add("at_mention", cfg.w_at_mention)
-        if SYMBOL.search(prompt):
-            add("symbol", cfg.w_symbol)
 
-        # --- question signals (negative) ---
+        # --- question / navigation signals (negative) ---
+        # Only one "opener" signal fires (a prompt starts with one word).
         if QUESTION_START.search(prompt):
             add("question_start", -cfg.w_question_start)
+        elif NAV_START.search(prompt):
+            add("nav_start", -cfg.w_nav_start)
         elif patterns.QUESTION_WORDS.search(prompt):
             add("question_word", -cfg.w_question_word)
 
