@@ -23,6 +23,11 @@ def _contains_word(text: str, terms: set[str]) -> bool:
     return any(re.search(rf"(?<!\\w){re.escape(term)}(?!\\w)", text) for term in terms)
 
 
+def _contains_actionable_verb(text: str) -> bool:
+    verbs = patterns.EDITING_TASKS | patterns.SEARCHING_TASKS | patterns.DEBUGGING_TASKS | patterns.REFACTORING_TASKS | patterns.GENERATION_TASKS
+    return any(re.search(rf"\b{re.escape(term)}\b", text) for term in verbs)
+
+
 def _extract_intent_and_object(text: str) -> tuple[str, str]:
     cleaned = text.strip()
     if not cleaned:
@@ -114,6 +119,7 @@ def extract_features(prompt: str) -> PromptFeatures:
     features.has_explanation_phrase = bool(re.search(r"\b(explain|teach|describe|compare|difference)\b", lower))
     features.has_comparison_phrase = bool(re.search(r"\b(vs|versus|compare|difference between)\b", lower))
     features.mentions_repository_term = bool(patterns.REPO_REFERENCE.search(text))
+    has_actionable_verb = _contains_actionable_verb(lower)
 
     features.is_question = first_word in patterns.QUESTION_START or text.endswith("?")
     features.is_explanation = first_word in patterns.EXPLANATION_START or lower.startswith("explain")
@@ -177,6 +183,7 @@ def extract_features(prompt: str) -> PromptFeatures:
     features.is_claude_generation_candidate = features.is_generation and (features.has_project_context or features.has_project_object or features.has_filepath or features.is_editing or features.is_debugging or features.is_refactoring or features.is_searching)
     features.is_actionable_code_request = (
         (features.is_generation or features.is_editing or features.is_debugging or features.is_refactoring or features.is_searching)
+        or has_actionable_verb
         or (features.is_project_edit_request and not features.is_explanation_intent)
         or (features.is_project_generation_request and not features.is_explanation_intent)
         or (features.is_claude_generation_candidate and not features.is_explanation_intent)
@@ -207,6 +214,7 @@ def extract_features(prompt: str) -> PromptFeatures:
     features.is_question_intent = (
         features.is_question
         and not features.has_request_phrase
+        and not has_actionable_verb
         and not (features.is_explanation_intent or features.is_debug_intent or features.is_search_intent or features.is_edit_intent or features.is_refactor_intent)
     )
     if features.is_generation and not features.has_project_object and not features.has_project_context and not features.has_filepath:

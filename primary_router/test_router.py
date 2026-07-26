@@ -212,6 +212,15 @@ def test_ambiguous_generation_prompts(prompt, expected):
     )
 
 
+def test_mixed_explanation_and_implementation_prompts():
+    result = route("What is OAuth and implement it")
+    assert result.route == Route.CLAUDE, (
+        f"Expected {Route.CLAUDE.value} for mixed explanation/implementation prompt, "
+        f"got {result.route.value} with scores {result.claude_score}/{result.side_score} "
+        f"and rules {result.fired_rules}"
+    )
+
+
 def test_router_returns_actionable_debug_metadata():
     result = route("Refactor LoginController")
     assert 0.0 <= result.confidence <= 1.0
