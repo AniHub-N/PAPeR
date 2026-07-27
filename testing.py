@@ -1,6 +1,8 @@
 from tools.registry import ToolRegistry
 from tools.dispatcher import ToolDispatcher
 from tools.models import ToolCall
+from tools.parser import ToolParser
+from tools.executor import ToolExecutor
 
 from tools.implementations.echo import EchoTool
 from tools.implementations.read_file import ReadFileTool
@@ -8,109 +10,117 @@ from tools.implementations.glob import GlobTool
 from tools.implementations.grep import GrepTool
 from tools.implementations.list_directory import ListDirectoryTool
 
+
+def header(title: str) -> None:
+    print("\n" + "=" * 70)
+    print(title)
+    print("=" * 70)
+
+
 def main():
-    # Create registry
     registry = ToolRegistry()
 
-    # Register tools
     registry.register(EchoTool())
     registry.register(ReadFileTool())
     registry.register(GlobTool())
     registry.register(GrepTool())
     registry.register(ListDirectoryTool())
 
-    # Create dispatcher
     dispatcher = ToolDispatcher(registry)
+    parser = ToolParser()
+    executor = ToolExecutor(dispatcher)
 
-    print("=" * 50)
-    print("Available Tools")
-    print("=" * 50)
+    # --------------------------------------------------
+    header("REGISTERED TOOLS")
 
-    for tool in registry.definitions():
+    for tool in registry.list_tools():
         print(tool)
 
-    print()
+    # --------------------------------------------------
+    header("ECHO TOOL")
 
-    print("=" * 50)
-    print("Testing Echo Tool")
-    print("=" * 50)
-
-    echo_result = dispatcher.dispatch(
+    result = dispatcher.dispatch(
         ToolCall(
             tool="echo",
             arguments={
-                "message": "Hello PAPeR!",
-                "number": 42,
-            },
+                "text": "Hello PAPeR!"
+            }
         )
     )
 
-    print(echo_result)
-    print()
+    print(result)
 
-    print("=" * 50)
-    print("Testing Read File Tool")
-    print("=" * 50)
+    # --------------------------------------------------
+    header("UNKNOWN TOOL")
 
-    read_result = dispatcher.dispatch(
+    result = dispatcher.dispatch(
+        ToolCall(
+            tool="banana",
+            arguments={}
+        )
+    )
+
+    print(result)
+
+    # --------------------------------------------------
+    header("READ FILE")
+
+    result = dispatcher.dispatch(
         ToolCall(
             tool="read_file",
             arguments={
                 "path": "README.md"
-            },
+            }
         )
     )
 
-    if read_result.success:
-        print(read_result.output)
+    if result.success:
+        print(result.output[:500])
     else:
-        print(read_result.error)
+        print(result.error)
 
+    # --------------------------------------------------
+    header("GLOB")
 
-    print("=" * 50)
-    print("Testing Glob Tool")
-    print("=" * 50)
-
-    glob_result = dispatcher.dispatch(
+    result = dispatcher.dispatch(
         ToolCall(
             tool="glob",
             arguments={
                 "pattern": "*.py",
-                "root": ".",
-            },
+                "root": "."
+            }
         )
     )
 
-    if glob_result.success:
-        for file in glob_result.output:
+    if result.success:
+        print(f"Found {len(result.output)} files")
+        for file in result.output[:10]:
             print(file)
     else:
-        print(glob_result.error)
+        print(result.error)
 
+    # --------------------------------------------------
+    header("GREP")
 
-    print("=" * 50)
-    print("Testing Grep Tool")
-    print("=" * 50)
-
-    grep_result = dispatcher.dispatch(
+    result = dispatcher.dispatch(
         ToolCall(
             tool="grep",
             arguments={
                 "pattern": "ToolRegistry",
-                "root": ".",
-            },
+                "root": "."
+            }
         )
     )
 
-    if grep_result.success:
-        for match in grep_result.output:
+    if result.success:
+        print(f"Found {len(result.output)} matches")
+        for match in result.output[:10]:
             print(match)
     else:
-        print(grep_result.error)
+        print(result.error)
 
-    print("=" * 50)
-    print("Testing List Directory Tool")
-    print("=" * 50)
+    # --------------------------------------------------
+    header("LIST DIRECTORY")
 
     result = dispatcher.dispatch(
         ToolCall(
@@ -122,10 +132,104 @@ def main():
     )
 
     if result.success:
-        for item in result.output:
+        print(f"{len(result.output)} entries")
+        for item in result.output[:10]:
             print(item)
     else:
         print(result.error)
+
+    # --------------------------------------------------
+    header("PARSER -> EXECUTOR")
+
+    llm_response = """
+{
+    "type": "tool_call",
+    "tool": "grep",
+    "arguments": {
+        "pattern": "ToolRegistry",
+        "root": "."
+    }
+}
+"""
+
+    response = parser.parse(llm_response)
+
+    print(response)
+
+    result = executor.execute(response)
+
+    print(result)
+
+    # --------------------------------------------------
+    header("FINAL ANSWER PARSER")
+
+    llm_response = """
+{
+    "type": "final_answer",
+    "content": "Everything works!"
+}
+"""
+
+    response = parser.parse(llm_response)
+
+    print(response)
+
+    print("\n")
+    print("=" * 70)
+    print("ALL TESTS COMPLETED")
+    print("=" * 70)
+
+    from tools.runner import ToolRunner
+    from tools.prompt import PromptBuilder
+
+
+    # --------------------------------------------------
+    header("RUNNER")
+
+
+    def fake_llm(prompt: str) -> str:
+        print("\n----- PROMPT SENT TO LLM -----")
+        print(prompt)
+        print("------------------------------\n")
+
+        # First call -> ask for a tool
+        if "Tool 'echo' returned:" not in prompt:
+            return """
+    {
+        "type": "tool_call",
+        "tool": "echo",
+        "arguments": {
+            "text": "Hello from the fake LLM!"
+        }
+    }
+    """
+
+        # Second call -> final answer
+        return """
+    {
+        "type": "final_answer",
+        "content": "Runner works!"
+    }
+    """
+
+
+    prompt_builder = PromptBuilder(registry)
+
+    system_prompt = prompt_builder.build()
+
+    runner = ToolRunner(
+        llm=fake_llm,
+        parser=parser,
+        executor=executor,
+    )
+
+    result = runner.run(
+        system_prompt
+        + "\n\nUser:\nSay hello."
+    )
+
+    print("\nRunner Result:")
+    print(result)
 
 
 if __name__ == "__main__":

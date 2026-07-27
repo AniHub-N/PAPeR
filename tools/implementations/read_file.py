@@ -2,24 +2,39 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..base import Tool
+from tools.base import Tool
+from tools.models import ToolResult
 
 
 class ReadFileTool(Tool):
-    """
-    Reads the contents of a file.
-    """
+    def __init__(self) -> None:
+        super().__init__(
+            name="read_file",
+            description="Read the contents of a file."
+        )
 
-    name = "read_file"
-    description = "Read the contents of a file."
+    def execute(self, path: str) -> ToolResult:
+        try:
+            content = Path(path).read_text(encoding="utf-8")
 
-    def execute(self, *, path: str, encoding: str = "utf-8") -> str:
-        file_path = Path(path)
+            return ToolResult(
+                tool=self.name,
+                success=True,
+                output=content,
+            )
 
-        if not file_path.exists():
-            raise FileNotFoundError(f"'{path}' does not exist.")
+        except Exception as exc:
+            return ToolResult(
+                tool=self.name,
+                success=False,
+                error=str(exc),
+            )
 
-        if not file_path.is_file():
-            raise ValueError(f"'{path}' is not a file.")
-
-        return file_path.read_text(encoding=encoding)
+    def schema(self) -> dict:
+        return {
+            "name": self.name,
+            "description": self.description,
+            "parameters": {
+                "path": "string"
+            }
+        }
