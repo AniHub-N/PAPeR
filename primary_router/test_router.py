@@ -240,11 +240,11 @@ def test_mixed_explanation_and_action_prompts(prompt, expected):
 @pytest.mark.parametrize(
     ("prompt", "expected"),
     [
-        ("Where is auth.ts?", Route.CLAUDE),
-        ("Which files use PostHog?", Route.CLAUDE),
-        ("List all routes.", Route.CLAUDE),
-        ("Show me the routing layer.", Route.CLAUDE),
-        ("Show me auth.ts.", Route.CLAUDE),
+        ("Where is auth.ts?", Route.SIDE_LLM),
+        ("Which files use PostHog?", Route.SIDE_LLM),
+        ("List all routes.", Route.SIDE_LLM),
+        ("Show me the routing layer.", Route.SIDE_LLM),
+        ("Show me auth.ts.", Route.SIDE_LLM),
     ],
 )
 def test_code_lookup_and_inspection_prompts(prompt, expected):
