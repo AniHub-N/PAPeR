@@ -1,0 +1,7 @@
+These are "version 2" ideas:
+
+More detectors (workflow, testing, architecture, tool usage)
+Better confidence/decay algorithms
+Preference explanations ("why did you infer this?")
+CLI/UI to inspect and edit preferences
+Import/export/reset

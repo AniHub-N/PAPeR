@@ -193,10 +193,23 @@ def extract_features(prompt: str) -> PromptFeatures:
         or (features.is_edit_intent and not features.is_explanation_intent)
         or (features.is_debug_intent and not features.is_explanation_intent)
         or (features.is_refactor_intent and not features.is_explanation_intent)
-        or (features.is_search_intent and not features.is_explanation_intent)
+        or (features.is_search_intent and not features.is_explanation_intent and not features.is_simple_lookup_question and not features.is_question)
     )
 
     features.is_explanation_intent = features.is_explanation or features.has_explanation_phrase or features.has_comparison_phrase
+    features.is_simple_lookup_question = (
+        features.is_question
+        and not features.has_request_phrase
+        and not has_actionable_verb
+        and not features.is_explanation_intent
+        and not features.is_debug_intent
+        and not features.is_edit_intent
+        and not features.is_refactor_intent
+        and (
+            bool(re.search(r"\b(where|show|list|which files|which file|what files|what file)\b", lower))
+            or lower.startswith(("where is ", "show me ", "list all "))
+        )
+    )
     features.is_mixed_action_request = (
         has_actionable_verb
         and (
@@ -220,7 +233,13 @@ def extract_features(prompt: str) -> PromptFeatures:
     features.is_search_intent = (
         features.is_searching
         or features.mentions_repository_term
-        or (features.is_question and bool(re.search(r"\b(where|show|list|find|locate|open|inspect|look|which files use|which file uses|what files use|what file uses)\b", lower)))
+        or (features.is_question and bool(re.search(r"\b(where|show|list|find|locate|open|inspect|look)\b", lower)))
+    )
+    features.is_question_intent = (
+        features.is_question
+        and not features.has_request_phrase
+        and not has_actionable_verb
+        and not (features.is_explanation_intent or features.is_debug_intent or features.is_edit_intent or features.is_refactor_intent)
     )
     features.is_refactor_intent = features.is_refactoring or (features.is_editing and features.has_contextual_reference)
     features.is_edit_intent = features.is_editing or (
@@ -235,12 +254,6 @@ def extract_features(prompt: str) -> PromptFeatures:
             or features.is_searching
             or bool(re.search(r"\b(fix|remove|rename|debug|clean|delete|update|change|refactor|modify|move)\b", lower))
         )
-    )
-    features.is_question_intent = (
-        features.is_question
-        and not features.has_request_phrase
-        and not has_actionable_verb
-        and not (features.is_explanation_intent or features.is_debug_intent or features.is_search_intent or features.is_edit_intent or features.is_refactor_intent)
     )
     if features.is_generation and not features.has_project_object and not features.has_project_context and not features.has_filepath:
         features.is_question_intent = False
