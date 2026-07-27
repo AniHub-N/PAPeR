@@ -1,58 +1,187 @@
-# Primary Router
+# PAPeR — Project Overview
 
-Primary Router is a deterministic prompt router that sends work to Claude Code or to a secondary LLM based on weighted, explainable evidence.
 
-## Architecture
+PAPeR is a companion that sits **next to Claude Code** and makes it faster, cheaper, and more personalized without replacing it.
 
-The project is organized around a small set of focused modules:
+It does this through four core capabilities:
 
-- [primary_router/models.py](primary_router/models.py): shared domain models for routes and extracted features.
-- [primary_router/patterns.py](primary_router/patterns.py): regexes and keyword dictionaries used for feature extraction.
-- [primary_router/features.py](primary_router/features.py): pure feature extraction only; it never makes routing decisions.
-- [primary_router/rules.py](primary_router/rules.py): the unified rule catalog for single-feature and compound rules.
-- [primary_router/router.py](primary_router/router.py): a generic scoring engine that evaluates rules and returns a routing decision.
-- [primary_router/test_router.py](primary_router/test_router.py): regression and behavior tests.
+1. **Deflects** non-coding questions ("What is OAuth?") to a cheaper model using your own API key, preserving Claude quota.
+2. **Optimizes** the coding path by reducing unnecessary context and token usage (planned: read deduplication, command output compression, smarter retrieval).
+3. **Learns** your coding and communication preferences across sessions to improve future interactions.
+4. **Provides a modular tool execution runtime** that enables LLMs to discover, invoke, and execute tools through a structured interface, making the system extensible and independent of any specific model provider.
 
-## Feature Extraction
+The tool runtime consists of a registry for managing available tools, a dispatcher for routing requests, an executor for handling tool calls, a parser for interpreting LLM responses, a prompt builder for exposing tool capabilities, and a runner that orchestrates the interaction between the LLM and the tool system. Together, these components enable iterative tool usage until a final answer is produced.
 
-Feature extraction is intentionally narrow and deterministic. It looks for signals such as:
+Nothing here replaces Claude Code. PAPeR plugs into Claude Code's existing hook system and session transcripts, adding lightweight orchestration, retrieval, personalization, and tool execution without modifying Claude Code itself.
 
-- file paths
-- stack traces
-- repository or workspace references
-- line numbers
-- CamelCase symbols
-- markdown code blocks
-- contextual references such as "this", "current", or "existing"
-- intent cues such as questions, explanations, generation, editing, debugging, searching, and refactoring
-- programming-language and framework terminology
+---
 
-The extractor only reports evidence and does not make routing decisions.
+## The big picture: two loops
 
-## Rule Engine
+**Fast loop** — runs on every message, must feel instant:
 
-Rules are expressed through a single data model:
+```text
+your prompt
+   │
+   ▼
+classifier  ──►  looks like a coding task?  ──►  hand off to Claude Code (normal)
+(scoring        │
+ router)        └►  looks like a plain question?
+                     │
+                     ▼
+              answer_pipeline  ── gather CLAUDE.md + preferences + transcript ──► side_model
+                                                                                  │
+                                                                                  ▼
+                                                                         your OWN cheap model (off-quota)
+```
 
-- each rule has a name, route, weight, and required features
-- single-feature rules fire when one feature is present
-- compound rules fire when multiple features are present together
-- the router scores Claude and side-LLM evidence independently and uses the higher score to decide
+**Slow loop** — runs after a session ends, not time-sensitive:
 
-## Adding New Rules
+```text
+session transcript ──► reflect on what happened ──► update rules / preferences / reports
+```
 
-1. Add a new feature to [primary_router/features.py](primary_router/features.py) if it is a new signal.
-2. Add a corresponding field to [primary_router/models.py](primary_router/models.py) if it represents a meaningful concept.
-3. Add a rule to [primary_router/rules.py](primary_router/rules.py) with the appropriate weight and route.
-4. Add or update tests in [primary_router/test_router.py](primary_router/test_router.py).
+The **only** thing connecting the two loops is a file Claude Code already writes:
+`~/.claude/projects/<project>/<session-id>.jsonl`. We never write it, only read it.
 
-## Tuning Weights
+---
 
-Weights are intentionally simple and explicit. Increase a rule's weight when you want stronger evidence for that route, and lower it when the signal is noisy. Because routing is deterministic, it is easy to understand and tune.
+## Rough structure
 
-## Testing
+```text
+PAPeR/
+├── primary_router/          # the fast loop
+│   ├── router.py
+│   ├── features.py
+│   ├── rules.py
+│   ├── models.py / patterns.py
+│   ├── transcript.py
+│   ├── side_model.py
+│   └── answer_pipeline.py
+│
+├── preferences/             # learns user preferences
+│
+├── tools/                   # modular tool execution runtime
+│   ├── base.py
+│   ├── models.py
+│   ├── registry.py
+│   ├── dispatcher.py
+│   ├── executor.py
+│   ├── parser.py
+│   ├── prompt.py
+│   ├── runner.py
+│   └── implementations/
+│
+├── README.md
+└── README2.md
+```
 
-Run the test suite with:
+---
+
+## Internals — how a deflected question is answered
+
+This is the part most likely to matter to you as a teammate. Three small, independently replaceable modules do the work:
+
+### 1. `transcript.py` — "what just happened"
+
+Claude Code logs the whole session to a JSONL file. This module reads it and boils it down to a small recap so the cheap model isn't answering blind.
+
+### 2. `side_model.py` — "the off-quota call"
+
+Makes a single request to a cheaper model using **your own API key**, keeping usage outside Claude's quota.
+
+### 3. `answer_pipeline.py` — "the glue"
+
+Builds the complete grounding stack and performs a single model call.
+
+```
+question
+ + CLAUDE.md
+ + user preferences
+ + transcript tail
+ ───────────────────────► side_model.answer()
+```
+
+### 4. `tools/` — "structured tool execution"
+
+The tool runtime enables an LLM to perform actions instead of only generating text.
+
+When the model needs external information, it returns a structured tool call. The runtime parses the request, dispatches it to the appropriate registered tool, executes it, returns a structured result, and feeds that result back into the conversation. This loop continues until the model produces a final answer.
+
+The runtime currently includes:
+
+- Tool Registry
+- Tool Dispatcher
+- Tool Executor
+- Tool Parser
+- Prompt Builder
+- Tool Runner
+
+Example tools include:
+
+- Echo
+- Read File
+- Glob
+- Grep
+- List Directory
+
+The runtime is model-agnostic and can be connected to OpenAI, Anthropic, Ollama, Gemini, or any other LLM capable of producing the expected JSON responses.
+
+---
+
+## The grounding stack
+
+```
+CLAUDE.md
++ user preferences
++ transcript tail
++ project map
++ fetched files
+```
+
+---
+
+## What's built vs. what's left
+
+| Piece | Status | Notes |
+|---|---|---|
+| Scoring router (`primary_router/`) | ✅ Working | Task vs. question routing using explainable weights |
+| `transcript.py` | ✅ Working | Session recap and transcript summarization |
+| `side_model.py` | ✅ Working | Gemini implementation; additional providers can be added |
+| `answer_pipeline.py` | ✅ Working | Single-call grounding pipeline |
+| **Tool Runtime (`tools/`)** | ✅ Working | Registry, dispatcher, executor, parser, prompt builder, runner, and core filesystem tools with end-to-end execution loop |
+| `preferences/` | 🟡 Skeleton | Architecture complete; implementation in progress |
+| Project map | ⬜ Not built | Repository summarization |
+| Retrieval toolbox | ⬜ Not built | Advanced file retrieval |
+| Claude hook integration | ⬜ Not built | Hook into `UserPromptSubmit` |
+| Task-path optimisation | ⬜ Not built | Reduce repeated reads and token usage |
+| Slow-loop reflection | ⬜ Not built | Session analysis and preference updates |
+| Savings counter | ⬜ Not built | Verified token and cost tracking |
+
+---
+
+## Immediate next steps
+
+- Finish the `preferences/` implementation.
+- Build the project map and retrieval toolbox.
+- Integrate the tool runtime with the retrieval pipeline.
+- Connect the runtime to a production LLM.
+- Wrap the complete pipeline inside the Claude Code hook system.
+
+---
+
+## Try it
 
 ```bash
-pytest -q
+# Run the runtime tests
+python testing.py
+
+# Dry-run the answer pipeline
+python3 answer_pipeline.py --dry-run "How does the router decide task vs question?"
+
+# Real off-quota call
+SIDECAR_API_KEY=your-gemini-key python3 answer_pipeline.py "What is OAuth?"
+
+# Transcript recap
+python3 transcript.py
 ```
