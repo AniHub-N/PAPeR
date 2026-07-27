@@ -1,17 +1,28 @@
 from __future__ import annotations
 
-from typing import Any
-
-from ..base import Tool
+from tools.base import Tool
+from tools.models import ToolResult
 
 
 class EchoTool(Tool):
-    """
-    Simple tool used to verify the tool pipeline.
-    """
+    def __init__(self) -> None:
+        super().__init__(
+            name="echo",
+            description="Echoes the provided text."
+        )
 
-    name = "echo"
-    description = "Returns the provided arguments unchanged."
+    def execute(self, text: str) -> ToolResult:
+        return ToolResult(
+            tool=self.name,
+            success=True,
+            output=text,
+        )
 
-    def execute(self, **kwargs: Any) -> Any:
-        return kwargs
+    def schema(self) -> dict:
+        return {
+            "name": self.name,
+            "description": self.description,
+            "parameters": {
+                "text": "string"
+            }
+        }

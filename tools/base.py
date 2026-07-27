@@ -3,38 +3,37 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
+from .models import ToolResult
+
 
 class Tool(ABC):
     """
-    Base interface for every tool.
+    Base class for all tools.
     """
 
-    name: str
-    description: str
+    def __init__(self, name: str, description: str) -> None:
+        self.name = name
+        self.description = description
 
-    @property
-    def definition(self) -> dict[str, str]:
+    @abstractmethod
+    def execute(self, **kwargs: Any) -> ToolResult:
         """
-        Metadata describing this tool.
+        Execute the tool.
+
+        Returns:
+            ToolResult
         """
+        raise NotImplementedError
+
+    def schema(self) -> dict[str, Any]:
+        """
+        Schema exposed to the LLM prompt.
+        """
+
         return {
             "name": self.name,
             "description": self.description,
         }
 
-    @abstractmethod
-    def execute(self, **kwargs: Any) -> Any:
-        """
-        Execute the tool.
-
-        Parameters
-        ----------
-        kwargs:
-            Tool-specific arguments.
-
-        Returns
-        -------
-        Any
-            Tool output.
-        """
-        raise NotImplementedError
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(name={self.name!r})"

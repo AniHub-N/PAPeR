@@ -4,15 +4,15 @@ import re
 from pathlib import Path
 
 from ..base import Tool
+from ..models import ToolResult
 
 
 class GrepTool(Tool):
-    """
-    Search for a regex pattern inside files.
-    """
-
-    name = "grep"
-    description = "Search for a regex pattern in files."
+    def __init__(self) -> None:
+        super().__init__(
+            name="grep",
+            description="Search for a regex pattern in files.",
+        )
 
     def execute(
         self,
@@ -21,39 +21,58 @@ class GrepTool(Tool):
         root: str = ".",
         recursive: bool = True,
         ignore_case: bool = False,
-    ) -> list[dict]:
-        root_path = Path(root)
+    ) -> ToolResult:
+        try:
+            root_path = Path(root)
 
-        if not root_path.exists():
-            raise FileNotFoundError(f"'{root}' does not exist.")
+            if not root_path.exists():
+                raise FileNotFoundError(f"'{root}' does not exist.")
 
-        if not root_path.is_dir():
-            raise ValueError(f"'{root}' is not a directory.")
+            if not root_path.is_dir():
+                raise ValueError(f"'{root}' is not a directory.")
 
-        flags = re.IGNORECASE if ignore_case else 0
-        regex = re.compile(pattern, flags)
+            flags = re.IGNORECASE if ignore_case else 0
+            regex = re.compile(pattern, flags)
 
-        iterator = root_path.rglob("*") if recursive else root_path.glob("*")
+            iterator = (
+                root_path.rglob("*")
+                if recursive
+                else root_path.glob("*")
+            )
 
-        matches = []
+            matches = []
 
-        for path in iterator:
-            if not path.is_file():
-                continue
+            for path in iterator:
+                if not path.is_file():
+                    continue
 
-            try:
-                text = path.read_text(encoding="utf-8")
-            except Exception:
-                continue
+                try:
+                    text = path.read_text(encoding="utf-8")
+                except Exception:
+                    continue
 
-            for line_number, line in enumerate(text.splitlines(), start=1):
-                if regex.search(line):
-                    matches.append(
-                        {
-                            "file": str(path),
-                            "line": line_number,
-                            "text": line.strip(),
-                        }
-                    )
+                for line_number, line in enumerate(
+                    text.splitlines(),
+                    start=1,
+                ):
+                    if regex.search(line):
+                        matches.append(
+                            {
+                                "file": str(path),
+                                "line": line_number,
+                                "text": line.strip(),
+                            }
+                        )
 
-        return matches
+            return ToolResult(
+                tool=self.name,
+                success=True,
+                output=matches,
+            )
+
+        except Exception as exc:
+            return ToolResult(
+                tool=self.name,
+                success=False,
+                error=str(exc),
+            )

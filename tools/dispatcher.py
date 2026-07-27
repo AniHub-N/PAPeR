@@ -6,30 +6,35 @@ from .registry import ToolRegistry
 
 class ToolDispatcher:
     """
-    Executes tool calls using the registered tools.
+    Looks up and executes tools from the registry.
     """
 
     def __init__(self, registry: ToolRegistry) -> None:
-        self._registry = registry
+        self.registry = registry
 
-    def dispatch(self, call: ToolCall) -> ToolResult:
+    def dispatch(self, tool_call: ToolCall) -> ToolResult:
         """
-        Execute a tool call and return the result.
+        Execute the requested tool.
+
+        This method never raises because of an unknown tool or
+        execution failure. Those are converted into ToolResults.
         """
-        try:
-            tool = self._registry.get(call.tool)
 
-            output = tool.execute(**call.arguments)
-
+        if not self.registry.has(tool_call.tool):
             return ToolResult(
-                tool=call.tool,
-                success=True,
-                output=output,
+                tool=tool_call.tool,
+                success=False,
+                error=f"Unknown tool '{tool_call.tool}'.",
             )
 
-        except Exception as e:
+        tool = self.registry.get(tool_call.tool)
+
+        try:
+            return tool.execute(**tool_call.arguments)
+
+        except Exception as exc:
             return ToolResult(
-                tool=call.tool,
+                tool=tool.name,
                 success=False,
-                error=str(e),
+                error=str(exc),
             )
