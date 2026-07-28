@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from time import time
 
+from .session_memory import SessionMemory
+
 
 @dataclass(slots=True)
 class SessionRuntime:
@@ -22,6 +24,7 @@ class SessionRuntime:
     synchronization_requested: bool = True
     transcript_offset: int = 0
     pending_transcript_lines: list[object] = field(default_factory=list)
+    session_memory: SessionMemory = field(default_factory=SessionMemory)
 
     def update(self, *, transcript_path: str, cwd: str, hook_event_name: str, prompt: str) -> None:
         if transcript_path:

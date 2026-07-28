@@ -145,6 +145,7 @@ class ContextDaemonServer(socketserver.ThreadingUDPServer):
 def create_context_daemon(checkpoint_path: Path) -> ContextDaemon:
     """Build the standard daemon with the Phase 3 incremental watcher."""
     from .checkpoints import CheckpointStore
+    from .synchronizer import ContextSynchronizer
     from .transcript_watcher import TranscriptWatcher
 
-    return ContextDaemon(synchronizer=TranscriptWatcher(CheckpointStore(checkpoint_path)))
+    return ContextDaemon(synchronizer=ContextSynchronizer(TranscriptWatcher(CheckpointStore(checkpoint_path))))

@@ -37,7 +37,7 @@ def test_standard_daemon_synchronizes_new_transcript_lines(tmp_path):
     notification = HookNotification("session-3", str(transcript), str(tmp_path), "UserPromptSubmit", "Explain OAuth", Route.SIDE_LLM)
 
     daemon.receive(notification)  # establish EOF checkpoint
-    transcript.write_text('{"type": "user"}\n', encoding="utf-8")
+    transcript.write_text('{"type": "user", "message": {"content": "Explain the daemon"}}\n', encoding="utf-8")
     daemon.synchronize_all()
 
-    assert [line.text for line in daemon.runtime("session-3").pending_transcript_lines] == ['{"type": "user"}']
+    assert daemon.runtime("session-3").session_memory.current_task == "Explain the daemon"
