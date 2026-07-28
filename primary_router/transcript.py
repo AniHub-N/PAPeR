@@ -49,15 +49,36 @@ def project_dir(cwd=None):
     return Path.home() / ".claude" / "projects" / slug
 
 
-def latest_transcript(cwd=None):
-    """Most-recently-modified .jsonl in the project dir, or None.
+def _has_conversation(path):
+    """True if the JSONL holds at least one user/assistant turn.
 
-    Convenience for standalone testing. In production Phase 2 gets the exact
-    path from the hook payload instead — see from_hook_input()."""
+    The VS Code / Desktop surfaces write SEVERAL .jsonl files per session — the
+    conversation itself, plus sidecar files that only hold queue-operation /
+    system / ai-title records. The sidecar files are often the most-recently
+    modified, so 'newest by mtime' alone can land on a file with no turns at all
+    (observed empirically). We use this to skip those."""
+    try:
+        for rec in _iter_records(path):
+            if rec.get("type") in ("user", "assistant"):
+                return True
+    except OSError:
+        pass
+    return False
+
+
+def latest_transcript(cwd=None):
+    """Most-recently-modified .jsonl that actually CONTAINS a conversation.
+
+    Convenience for standalone testing / hook fallback. Prefers the newest file
+    with real user/assistant turns over a newer queue-only sidecar; falls back
+    to plain-newest only if none contain conversation."""
     d = project_dir(cwd)
     if not d.is_dir():
         return None
     files = sorted(d.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for f in files:
+        if _has_conversation(f):
+            return f
     return files[0] if files else None
 
 
@@ -65,9 +86,12 @@ def from_hook_input(hook_json):
     """Pull the transcript path out of a Claude Code hook stdin payload.
 
     Claude Code includes `transcript_path` (and `cwd`, `session_id`) in the JSON
-    it pipes to every hook. Falls back to latest_transcript(cwd) if absent."""
+    it pipes to every hook. We honor that path ONLY if it actually contains
+    conversation — on VS Code/Desktop the passed path can point at a queue-only
+    sidecar, in which case we fall back to the newest conversation-bearing file
+    for the same project (see _has_conversation)."""
     path = hook_json.get("transcript_path")
-    if path and Path(path).is_file():
+    if path and Path(path).is_file() and _has_conversation(Path(path)):
         return Path(path)
     return latest_transcript(hook_json.get("cwd"))
 

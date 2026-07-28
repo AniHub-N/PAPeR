@@ -57,9 +57,29 @@ def init(conn):
             sent_units INTEGER NOT NULL,       -- what was actually sent
             unit       TEXT NOT NULL           -- 'tokens' | 'reads'
         );
+        CREATE TABLE IF NOT EXISTS meta (
+            key   TEXT PRIMARY KEY,
+            value TEXT
+        );
         """
     )
     conn.commit()
+
+
+def mark_claude_done(conn):
+    """Bump a counter each time Claude finishes a response (Stop hook calls this).
+    The UI watches this counter to blink a 'Claude responded' signal."""
+    row = conn.execute(
+        "SELECT value FROM meta WHERE key='claude_done_seq'"
+    ).fetchone()
+    n = (int(row[0]) if row and str(row[0]).isdigit() else 0) + 1
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES('claude_done_seq', ?) "
+        "ON CONFLICT(key) DO UPDATE SET value=?",
+        (str(n), str(n)),
+    )
+    conn.commit()
+    return n
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +111,7 @@ def log_saving(conn, *, kind, raw_units, sent_units, unit):
 
 def get_state(conn, *, recent=20):
     rows = conn.execute(
-        "SELECT ts, question, answer, provider, model, input_tokens, "
+        "SELECT id, ts, question, answer, provider, model, input_tokens, "
         "output_tokens, cost_usd FROM deflections ORDER BY id DESC LIMIT ?",
         (recent,),
     ).fetchall()
@@ -110,7 +130,13 @@ def get_state(conn, *, recent=20):
         "FROM savings WHERE kind='rtk_compress'"
     ).fetchone()[0]
 
+    done_row = conn.execute(
+        "SELECT value FROM meta WHERE key='claude_done_seq'"
+    ).fetchone()
+    claude_done_seq = int(done_row[0]) if done_row and str(done_row[0]).isdigit() else 0
+
     return {
+        "claude_done_seq": claude_done_seq,
         "provider": {
             "vendor": os.environ.get("SIDECAR_VENDOR", "gemini"),
             "model": os.environ.get("SIDECAR_MODEL", ""),

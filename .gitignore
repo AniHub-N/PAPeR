@@ -2,6 +2,9 @@
 .env
 .env.local
 
+# Machine-specific hook registration (absolute paths); ship hooks/hooks.json instead
+.claude/
+
 # Python
 __pycache__/
 *.pyc
