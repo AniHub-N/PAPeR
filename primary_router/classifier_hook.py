@@ -8,7 +8,9 @@ model, or waits on a background service.
 """
 
 import json
+import os
 import signal
+import socket
 import sys
 
 try:
@@ -51,6 +53,34 @@ def classify_payload(payload: HookPayload) -> HookNotification:
     )
 
 
+def notify_context_daemon(notification: HookNotification) -> None:
+    """Best-effort, non-blocking handoff to the local Context Daemon.
+
+    UDP intentionally gives the hook no dependency on daemon availability. A
+    missing or restarting daemon must never delay or block Claude Code.
+    """
+    configured_port = os.environ.get("PAPER_CONTEXT_DAEMON_PORT")
+    if not configured_port:
+        return
+    try:
+        port = int(configured_port)
+        if not 1 <= port <= 65535:
+            return
+        body = json.dumps({
+            "session_id": notification.session_id,
+            "transcript_path": notification.transcript_path,
+            "cwd": notification.cwd,
+            "hook_event_name": notification.hook_event_name,
+            "prompt": notification.prompt,
+            "route": notification.route.value,
+        }).encode("utf-8")
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as client:
+            client.setblocking(False)
+            client.sendto(body, ("127.0.0.1", port))
+    except (OSError, ValueError):
+        return
+
+
 def pass_through() -> None:
     """Exit silently so Claude Code processes the original prompt."""
     raise SystemExit(0)
@@ -73,6 +103,7 @@ def main() -> None:
         signal.alarm(HARD_TIMEOUT_SEC)
 
     notification = classify_payload(parse_hook_payload(sys.stdin.read()))
+    notify_context_daemon(notification)
     if notification.route == Route.SIDE_LLM:
         block("Thinking - answer will appear shortly")
     pass_through()
