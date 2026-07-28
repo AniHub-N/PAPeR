@@ -149,17 +149,40 @@ then wrap `answer_pipeline.answer_question()` in the `UserPromptSubmit` hook.
 
 ---
 
+## Plugging in your API key
+
+The side model is **bring-your-own-key** — deflected questions are billed to
+*your* key, not your Claude subscription. Setup is one file:
+
+```bash
+cd PAPeR
+cp .env.example .env          # .env is gitignored — your key never gets committed
+# then edit .env and paste your key after SIDECAR_API_KEY=
+```
+
+`.env` (at the repo root) is picked up automatically by every script — no
+`export` needed. It holds:
+
+| Variable | Meaning |
+|---|---|
+| `SIDECAR_VENDOR` | which provider gets the question (default `gemini`) |
+| `SIDECAR_API_KEY` | **your own** key for that provider (Gemini: https://aistudio.google.com/apikey) |
+| `SIDECAR_MODEL` | optional model-id override (e.g. `gemini-2.5-flash`) |
+| `SIDECAR_TIMEOUT` | optional request timeout, seconds (default 15) |
+
+Precedence: a real shell `export`/CI variable always wins over `.env`, so CI can
+override without touching the file.
+
 ## Try it
 
 ```bash
+# 1) With your key in .env, make a real off-quota call:
 cd primary_router
+python3 answer_pipeline.py "What is OAuth?"
 
-# See EXACTLY what would be sent to the model — no key needed:
+# 2) See EXACTLY what would be sent to the model — no key needed:
 python3 answer_pipeline.py --dry-run "How does the router decide task vs question?"
 
-# Make a real off-quota call with your own key:
-SIDECAR_API_KEY=your-gemini-key python3 answer_pipeline.py "What is OAuth?"
-
-# Just the transcript recap:
+# 3) Just the transcript recap:
 python3 transcript.py            # newest session for this project
 ```

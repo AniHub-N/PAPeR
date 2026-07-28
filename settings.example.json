@@ -1,0 +1,25 @@
+{
+  "//": "PAPeR — quickest way to TEST in your own Claude Code without a full plugin install.",
+  "//1": "Copy the two blocks below into your ~/.claude/settings.json (or a project .claude/settings.json).",
+  "//2": "Replace <PAPER> with the absolute path to this repo, e.g. /Users/you/.../repos/PAPeR",
+  "//3": "bin/paper-py auto-provisions Python 3.10+ (via uv) so you don't have to install one.",
+
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "<PAPER>/bin/paper-py <PAPER>/primary_router/classifier_hook.py",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  },
+
+  "statusLine": {
+    "type": "command",
+    "command": "python3 <PAPER>/sidecar/statusline.py"
+  }
+}

@@ -123,11 +123,11 @@ def format_preferences(prefs):
 # The pipeline
 # ---------------------------------------------------------------------------
 
-def gather_context(*, hook_json=None, cwd=None, preferences=None):
+def gather_context(*, question="", hook_json=None, cwd=None, preferences=None):
     """Collect the grounding stack for a deflected question (all best-effort).
 
-    Returns a dict with keys: claude_md, preferences, transcript_tail — the exact
-    kwargs side_model.answer() expects."""
+    Returns a dict with keys: claude_md, preferences, transcript_tail, fetched —
+    the exact kwargs side_model.answer() expects."""
     hook_json = hook_json or {}
     cwd = cwd or hook_json.get("cwd")
 
@@ -143,10 +143,20 @@ def gather_context(*, hook_json=None, cwd=None, preferences=None):
     except Exception:
         transcript_tail = ""
 
+    # Retrieval Toolbox: for locate/symbol questions, grep the repo so the side
+    # model can answer "it's in side_model.py:40" instead of guessing. No-op
+    # (returns "") for questions with no symbol-like terms.
+    try:
+        import retrieval
+        fetched = retrieval.fetch(question, cwd) if question and cwd else ""
+    except Exception:
+        fetched = ""
+
     return {
         "claude_md": claude_md,
         "preferences": preferences_text,
         "transcript_tail": transcript_tail,
+        "fetched": fetched,
     }
 
 
@@ -155,7 +165,8 @@ def answer_question(question, *, hook_json=None, cwd=None, preferences=None):
 
     Returns (answer_text, usage_dict). Raises side_model.SideModelError only on a
     genuine model-call failure (missing key, network, bad vendor)."""
-    context = gather_context(hook_json=hook_json, cwd=cwd, preferences=preferences)
+    context = gather_context(question=question, hook_json=hook_json, cwd=cwd,
+                             preferences=preferences)
     return side_model.answer(question, **context)
 
 
@@ -173,7 +184,7 @@ if __name__ == "__main__":
     argv = [a for a in argv if a != "--dry-run"]
     question = " ".join(argv) or "What is OAuth? Answer in two sentences."
 
-    context = gather_context(cwd=os.getcwd())
+    context = gather_context(question=question, cwd=os.getcwd())
 
     if dry_run:
         # Show EXACTLY what would be sent — no key needed. This is how to verify

@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/paper-py ${CLAUDE_PLUGIN_ROOT}/primary_router/classifier_hook.py",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}

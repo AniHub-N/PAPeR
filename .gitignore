@@ -1,0 +1,9 @@
+# Secrets — NEVER commit the real key
+.env
+.env.local
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.db

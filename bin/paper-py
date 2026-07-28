@@ -1,0 +1,26 @@
+#!/bin/sh
+# paper-py — run a PAPeR Python script under a guaranteed Python 3.10+.
+#
+# The branch code needs 3.10+ (dataclass slots, X|None). Many machines still
+# default to an older python3, so this launcher provisions a modern interpreter
+# with the LEAST user work possible:
+#   1. use a modern system python if one is already on PATH, else
+#   2. use `uv`, which AUTO-DOWNLOADS Python 3.11 on first use (cached after), else
+#   3. fall back to system python3 (the hook then fails open if it's too old).
+#
+# hooks.json points at:  ${CLAUDE_PLUGIN_ROOT}/bin/paper-py <script.py> [args...]
+
+# 1) already-installed modern interpreter
+for py in python3.13 python3.12 python3.11 python3.10; do
+  if command -v "$py" >/dev/null 2>&1; then
+    exec "$py" "$@"
+  fi
+done
+
+# 2) uv auto-fetches the interpreter (one-time ~30MB download, then instant)
+if command -v uv >/dev/null 2>&1; then
+  exec uv run --python 3.11 python "$@"
+fi
+
+# 3) last resort — may be <3.10; the hook is written to fail open if so
+exec python3 "$@"
