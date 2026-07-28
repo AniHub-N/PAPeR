@@ -10,7 +10,8 @@ from __future__ import annotations
 import json
 import socketserver
 from collections.abc import Callable
-from threading import RLock
+from pathlib import Path
+from threading import Event, RLock, Thread, current_thread
 from typing import Optional
 
 try:
@@ -30,6 +31,8 @@ class ContextDaemon:
         self._runtimes: dict[str, SessionRuntime] = {}
         self._synchronizer = synchronizer
         self._lock = RLock()
+        self._stop_event = Event()
+        self._watch_thread: Optional[Thread] = None
 
     def receive(self, notification: HookNotification) -> SessionRuntime:
         """Register/update a session then request transcript synchronization."""
@@ -63,6 +66,39 @@ class ContextDaemon:
             return
         self._synchronizer(runtime)
         runtime.synchronization_requested = False
+
+    def synchronize_all(self) -> None:
+        """Synchronize every active session once."""
+        for runtime in self.active_sessions():
+            self.synchronize(runtime.session_id)
+
+    def start_watching(self, interval_seconds: float = 0.25) -> None:
+        """Start a tail-like background loop for every active session."""
+        if interval_seconds <= 0:
+            raise ValueError("watch interval must be positive")
+        with self._lock:
+            if self._watch_thread and self._watch_thread.is_alive():
+                return
+            self._stop_event.clear()
+            self._watch_thread = Thread(
+                target=self._watch_loop,
+                args=(interval_seconds,),
+                name="paper-context-daemon",
+                daemon=True,
+            )
+            self._watch_thread.start()
+
+    def stop_watching(self) -> None:
+        """Stop the background watcher without discarding session runtimes."""
+        self._stop_event.set()
+        thread = self._watch_thread
+        if thread and thread is not current_thread():
+            thread.join(timeout=2)
+
+    def _watch_loop(self, interval_seconds: float) -> None:
+        while not self._stop_event.is_set():
+            self.synchronize_all()
+            self._stop_event.wait(interval_seconds)
 
     def runtime(self, session_id: str) -> Optional[SessionRuntime]:
         with self._lock:
@@ -104,3 +140,11 @@ class ContextDaemonServer(socketserver.ThreadingUDPServer):
     def __init__(self, daemon: ContextDaemon, port: int = 0) -> None:
         self.daemon = daemon
         super().__init__(("127.0.0.1", port), _NotificationHandler)
+
+
+def create_context_daemon(checkpoint_path: Path) -> ContextDaemon:
+    """Build the standard daemon with the Phase 3 incremental watcher."""
+    from .checkpoints import CheckpointStore
+    from .transcript_watcher import TranscriptWatcher
+
+    return ContextDaemon(synchronizer=TranscriptWatcher(CheckpointStore(checkpoint_path)))
