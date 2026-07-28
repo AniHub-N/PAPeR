@@ -40,7 +40,7 @@ class TranscriptWatcher:
     def __call__(self, runtime: SessionRuntime) -> None:
         batch = self.read(runtime)
         runtime.transcript_offset = batch.end_offset
-        runtime.pending_transcript_lines.extend(line.text for line in batch.lines)
+        runtime.pending_transcript_lines.extend(batch.lines)
 
     def read(self, runtime: SessionRuntime) -> WatchBatch:
         with self._lock:

@@ -21,7 +21,7 @@ class SessionRuntime:
     last_activity_at: float = field(default_factory=time)
     synchronization_requested: bool = True
     transcript_offset: int = 0
-    pending_transcript_lines: list[str] = field(default_factory=list)
+    pending_transcript_lines: list[object] = field(default_factory=list)
 
     def update(self, *, transcript_path: str, cwd: str, hook_event_name: str, prompt: str) -> None:
         if transcript_path:
