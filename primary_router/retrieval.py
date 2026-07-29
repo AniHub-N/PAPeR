@@ -39,31 +39,46 @@ _STOP = {
     "codebase", "code", "for", "with", "does", "into", "from", "it", "its",
 }
 
+# Generic filler — real words, but useless as search terms (would add noise).
+_GENERIC = {
+    "should", "could", "would", "shall", "will", "drop", "put", "place", "keep",
+    "store", "save", "want", "need", "like", "just", "also", "really", "actually",
+    "thing", "things", "stuff", "get", "got", "set", "make", "made", "let", "lets",
+    "please", "help", "add", "new", "some", "any", "all", "best", "good", "way",
+    "ways", "here", "there", "them", "then", "your", "you", "mine", "can", "about",
+    "have", "has", "had", "want", "give", "tell", "know", "think", "look", "see",
+}
+
 _TOKEN = re.compile(r"[A-Za-z_][A-Za-z0-9_]{2,}")
 
 
-def extract_terms(prompt, limit=3):
-    """Pull the identifier / proper-noun terms worth grepping out of a prompt.
+def extract_terms(prompt, limit=4):
+    """Pull the terms worth grepping out of a prompt — two tiers, symbols first.
 
-    Keeps tokens that look like symbols: CamelCase, snake_case, ALLCAPS
-    acronyms, or Capitalized proper nouns (JWT, Supabase, AuthService). Plain
-    lowercase words are dropped — they'd match everything."""
-    terms = []
-    seen = set()
+    Tier 1 (high precision): tokens that look like symbols — CamelCase,
+    snake_case, ALLCAPS, or Capitalized proper nouns (JWT, AuthService).
+    Tier 2 (grounding fallback): plain lowercase CONTENT words that aren't
+    question scaffolding or filler (api, key, env, token, classifier). Without
+    this tier, natural questions like 'where do I drop my api key?' extract
+    nothing and the model answers with no project facts. Noise is bounded by the
+    5-file / 3000-char caps in fetch()."""
+    symbols, content, seen = [], [], set()
     for m in _TOKEN.finditer(prompt):
         w = m.group(0)
         lw = w.lower()
-        if lw in _STOP or lw in seen:
+        if lw in _STOP or lw in _GENERIC or lw in seen:
             continue
         looks_symbol = (
             w[0].isupper()               # Capitalized / CamelCase / ALLCAPS
             or "_" in w                  # snake_case
             or any(c.isupper() for c in w[1:])  # camelCase
         )
+        seen.add(lw)
         if looks_symbol:
-            terms.append(w)
-            seen.add(lw)
-    return terms[:limit]
+            symbols.append(w)
+        elif len(lw) >= 3:
+            content.append(w)
+    return (symbols + content)[:limit]
 
 
 def _ripgrep(term, cwd):

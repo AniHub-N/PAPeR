@@ -76,10 +76,30 @@ _READONLY_LEADS = {
 }
 
 
+# First-person implementation asks. "How do I feed X into my sidecar?" is NOT a
+# read-only question — it's a request to BUILD/CHANGE the user's project, which
+# the full model (Claude) should handle. These must never be deflected to the
+# cheap side model (that produced the circular "it's already done" answers).
+_BUILD_REQUEST = re.compile(
+    r"\bhow\s+(do|can|should|would|could|might)\s+(i|we)\b"
+    r"|\bhow\s+to\b"
+    r"|\b(help me|let'?s|i want to|i need to|i'?m trying to|i wanna)\b",
+    re.IGNORECASE,
+)
+
+
+def _looks_build_request(prompt):
+    """A first-person 'how do/can I ...' / 'how to ...' / 'help me ...' request —
+    an implementation task for Claude, not a cheap grounded Q&A."""
+    return bool(_BUILD_REQUEST.search(prompt or ""))
+
+
 def _looks_readonly(prompt):
-    """True if the prompt is a read-only question (locate/what/why/how), not an
-    edit. Keys on the LEADING word so 'Where is JWT configured?' is read-only
-    despite containing 'configured'."""
+    """True if the prompt is a read-only question (locate/what/why/how-does), not
+    an edit or a build request. Keys on the LEADING word so 'Where is JWT
+    configured?' is read-only despite containing 'configured'."""
+    if _looks_build_request(prompt):
+        return False  # "how do I ..." is a build ask -> Claude, never deflect
     tokens = re.findall(r"[a-zA-Z]+", prompt.lower())
     if not tokens:
         return False
@@ -132,8 +152,9 @@ def _attribution(usage, vendor, model):
     return f"\n\n↳ answered off-quota · {tag} · {total} tok · 0 Claude quota"
 
 
-def _log_deflection(prompt, answer, usage, vendor, model):
-    """Best-effort: record the deflection so the counter/report can read it."""
+def _log_deflection(prompt, answer, usage, vendor, model, session_id=""):
+    """Best-effort: record the deflection so the counter/report can read it.
+    session_id lets Tier-1 fold this session's off-quota Q&A into its report."""
     try:
         import os
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -145,7 +166,8 @@ def _log_deflection(prompt, answer, usage, vendor, model):
             out_tok = usage.get("candidatesTokenCount", 0)
         store.log_deflection(conn, question=prompt, answer=answer,
                              provider=vendor, model=model,
-                             input_tokens=in_tok, output_tokens=out_tok)
+                             input_tokens=in_tok, output_tokens=out_tok,
+                             session_id=session_id)
         conn.close()
     except Exception:
         pass  # counter is a nicety; never let it break the answer
@@ -178,7 +200,8 @@ def _deflect(prompt, data):
     if not text:
         pass_through()  # empty answer -> let Claude handle it
     text = _plainify(text)
-    _log_deflection(prompt, text, usage, side_model.VENDOR, side_model.MODEL)
+    _log_deflection(prompt, text, usage, side_model.VENDOR, side_model.MODEL,
+                    session_id=(data or {}).get("session_id", ""))
     block(text + _attribution(usage, side_model.VENDOR, side_model.MODEL))
 
 
@@ -193,6 +216,13 @@ def main():
     # Enable/disable toggle (and 'user is active' ack). When paused, PAPeR does
     # nothing — every prompt goes straight to Claude.
     if not _paper_enabled():
+        pass_through()
+
+    # A first-person build/how-to request ("how do I wire X into my sidecar?") is
+    # for Claude — never deflect it, even if the base router scored it side_llm.
+    # This is what made project-implementation questions get circular cheap-model
+    # answers instead of real help.
+    if _looks_build_request(prompt):
         pass_through()
 
     decision = route(prompt)

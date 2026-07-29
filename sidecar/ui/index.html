@@ -48,6 +48,13 @@
   #done.blinking { animation:blink 1s ease-in-out infinite; }
   @keyframes blink { 0%,100%{opacity:1;} 50%{opacity:.4;} }
 
+  /* Session-report-ready banner (slow loop wrote a Tier-1 report) */
+  #report { display:none; flex:0 0 auto; cursor:pointer; -webkit-app-region:no-drag;
+            padding:9px 12px; background:rgba(211,176,115,.14); color:var(--gold);
+            border-bottom:1px solid rgba(211,176,115,.4); font-weight:600;
+            font-size:13px; }
+  #report.show { display:block; animation:blink 1s ease-in-out infinite; }
+
   /* Paused strip */
   #paused { display:none; flex:0 0 auto; padding:8px 12px; font-size:12px;
             color:var(--danger); background:rgba(224,87,74,.10);
@@ -111,6 +118,7 @@
   </header>
 
   <div id="done" title="Dismiss">● Claude has responded</div>
+  <div id="report" title="Dismiss">📄 New session report generated — see reports/</div>
   <div id="paused">PAPeR is paused — every prompt goes to Claude untouched.</div>
 
   <div id="chat">
@@ -208,6 +216,7 @@ function render(s){
   if(last && !firstLoad){ last.scrollIntoView({block:"start"}); }
 
   updateDone(s.claude_done_seq||0, s.claude_done_ack||0);
+  updateReport(s.reports_count||0);
   reflectEnabled(s.enabled!==false);
 
   firstLoad=false;
@@ -223,6 +232,23 @@ setInterval(poll,1200);
 $("done").addEventListener("click", dismissDone);
 window.addEventListener("focus", dismissDone);
 document.addEventListener("mouseenter", dismissDone);
+
+// ---- Session-report-ready ping (slow loop) ----
+let lastReports = null;   // baseline set on first poll so we only ping on NEW ones
+let reportTimer = null;
+function updateReport(count){
+  if(lastReports === null){ lastReports = count; return; }
+  if(count > lastReports){
+    lastReports = count;
+    const el = $("report"); el.classList.add("show");
+    if(reportTimer){ clearTimeout(reportTimer); }
+    reportTimer = setTimeout(()=>el.classList.remove("show"), 15000);
+  }
+}
+$("report").addEventListener("click", ()=>{
+  if(reportTimer){ clearTimeout(reportTimer); }
+  $("report").classList.remove("show");
+});
 
 // ---- Enable / disable toggle ----
 const powerBtn=$("power"); let enabled=true;

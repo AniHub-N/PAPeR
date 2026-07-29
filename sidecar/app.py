@@ -110,18 +110,29 @@ def _apply_opacity(value):
 
 def _pin_on_start():
     """Runs on a worker thread (from webview.start(func)); waits for the window,
-    then dispatches the pin to the main thread. Pinned by default."""
+    then dispatches the pin to the main thread. Pinned by default.
+
+    We RE-APPLY the pin a few times over the first ~1.5s. The very first apply
+    frequently doesn't 'stick' — the accessory/floating behavior only holds once
+    the app has fully finished launching and activating, so a single early call
+    leaves you having to manually unpin/repin. Re-asserting fixes that."""
     try:
         from AppKit import NSApp
     except Exception as exc:
         sys.stderr.write(f"[app] AppKit unavailable: {exc}\n")
         return
+    # 1) wait for the window to exist
     for _ in range(60):
         app = NSApp()
         if app and app.windows():
-            _dispatch_main(lambda: _apply_pin(True))
-            return
+            break
         time.sleep(0.1)
+    else:
+        return
+    # 2) apply now, then re-assert as the app settles (cumulative ~1.5s)
+    for delay in (0.0, 0.5, 1.0):
+        time.sleep(delay)
+        _dispatch_main(lambda: _apply_pin(True))
 
 
 class PinApi:

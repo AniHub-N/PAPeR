@@ -41,6 +41,7 @@ def init(conn):
         CREATE TABLE IF NOT EXISTS deflections (
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
             ts            TEXT DEFAULT CURRENT_TIMESTAMP,
+            session_id    TEXT,
             question      TEXT NOT NULL,
             answer        TEXT NOT NULL,
             provider      TEXT,
@@ -61,8 +62,21 @@ def init(conn):
             key   TEXT PRIMARY KEY,
             value TEXT
         );
+        CREATE TABLE IF NOT EXISTS reports (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts            TEXT DEFAULT CURRENT_TIMESTAMP,
+            session_id    TEXT,
+            health_score  INTEGER,
+            report_json   TEXT,   -- full Tier-1 output (bullets + points + stats)
+            points_json   TEXT    -- just the 5-6 points, for Tier-2 to aggregate
+        );
         """
     )
+    # Migrate older DBs that predate the session_id column.
+    try:
+        conn.execute("ALTER TABLE deflections ADD COLUMN session_id TEXT")
+    except sqlite3.OperationalError:
+        pass  # column already exists
     conn.commit()
 
 
@@ -119,14 +133,27 @@ def is_enabled(conn):
 # ---------------------------------------------------------------------------
 
 def log_deflection(conn, *, question, answer, provider="", model="",
-                   input_tokens=0, output_tokens=0, cost_usd=0.0):
+                   input_tokens=0, output_tokens=0, cost_usd=0.0, session_id=""):
     conn.execute(
         "INSERT INTO deflections "
-        "(question, answer, provider, model, input_tokens, output_tokens, cost_usd) "
-        "VALUES (?,?,?,?,?,?,?)",
-        (question, answer, provider, model, input_tokens, output_tokens, cost_usd),
+        "(session_id, question, answer, provider, model, input_tokens, output_tokens, cost_usd) "
+        "VALUES (?,?,?,?,?,?,?,?)",
+        (session_id, question, answer, provider, model, input_tokens, output_tokens, cost_usd),
     )
     conn.commit()
+
+
+def deflections_for_session(conn, session_id, *, limit=100):
+    """Off-quota questions asked during one session — Tier-1 folds these into the
+    session report so a side-model-only session still documents what happened."""
+    if not session_id:
+        return []
+    rows = conn.execute(
+        "SELECT question, answer, model, input_tokens, output_tokens "
+        "FROM deflections WHERE session_id=? ORDER BY id LIMIT ?",
+        (session_id, limit),
+    ).fetchall()
+    return [dict(r) for r in rows]
 
 
 def log_saving(conn, *, kind, raw_units, sent_units, unit):
@@ -135,6 +162,27 @@ def log_saving(conn, *, kind, raw_units, sent_units, unit):
         (kind, raw_units, sent_units, unit),
     )
     conn.commit()
+
+
+def log_report(conn, *, session_id, health_score, report_json, points_json):
+    """Persist one Tier-1 session report. Tier-2 later reads recent_reports()
+    (the summaries, not raw transcripts) to update CLAUDE.md/Skills."""
+    conn.execute(
+        "INSERT INTO reports (session_id, health_score, report_json, points_json) "
+        "VALUES (?,?,?,?)",
+        (session_id, int(health_score or 0), report_json, points_json),
+    )
+    conn.commit()
+
+
+def recent_reports(conn, *, limit=6):
+    """Most-recent Tier-1 reports, newest first — the input Tier-2 aggregates."""
+    rows = conn.execute(
+        "SELECT id, ts, session_id, health_score, report_json, points_json "
+        "FROM reports ORDER BY id DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    return [dict(r) for r in rows]
 
 
 # ---------------------------------------------------------------------------
@@ -162,9 +210,12 @@ def get_state(conn, *, recent=20):
         "FROM savings WHERE kind='rtk_compress'"
     ).fetchone()[0]
 
+    reports_count = conn.execute("SELECT COUNT(*) FROM reports").fetchone()[0]
+
     return {
         "claude_done_seq": _meta_int(conn, "claude_done_seq"),
         "claude_done_ack": _meta_int(conn, "claude_done_ack"),
+        "reports_count": reports_count,
         "enabled": is_enabled(conn),
         "provider": {
             "vendor": os.environ.get("SIDECAR_VENDOR", "gemini"),

@@ -77,3 +77,28 @@ class RoutingResult:
             f"claude={self.claude_score}, side={self.side_score}, "
             f"confidence={self.confidence:.2f}, rules={self.fired_rules})"
         )
+
+
+# --- Context daemon wire types (ported from phase1-only for the slow loop) ---
+
+@dataclass(frozen=True, slots=True)
+class HookPayload:
+    """Stable subset of a Claude Code hook payload used by PAPeR."""
+
+    prompt: str
+    session_id: str
+    transcript_path: str
+    cwd: str = ""
+    hook_event_name: str = "UserPromptSubmit"
+
+
+@dataclass(frozen=True, slots=True)
+class HookNotification:
+    """A daemon-ready notification produced by the hook path."""
+
+    session_id: str
+    transcript_path: str
+    cwd: str
+    hook_event_name: str
+    prompt: str
+    route: Route

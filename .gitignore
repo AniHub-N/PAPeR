@@ -10,3 +10,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 *.db
+
+# Generated Tier-1 session reports (regenerated each session)
+reports/
