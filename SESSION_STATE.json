@@ -1,0 +1,76 @@
+{
+  "project": "PAPeR",
+  "architecture_version": "context-synchronization-milestone",
+  "completed_phases": [1, 2, 3, 4, 5],
+  "current_phase": 5,
+  "next_phase": 6,
+  "next_goal": "Add asynchronous, session-scoped ChromaDB semantic indexing without changing transcript synchronization semantics.",
+  "completed_commits": [
+    {"hash": "73a06c9", "title": "Stabilize prompt router hook integration"},
+    {"hash": "1c81c6f", "title": "Add context daemon session lifecycle"},
+    {"hash": "d797eb9", "title": "Add incremental transcript watcher"},
+    {"hash": "4ed30ec", "title": "Parse transcript records into context events"},
+    {"hash": "3788c14", "title": "Maintain session memory from transcript events"}
+  ],
+  "modified_files": [
+    "primary_router/models.py",
+    "primary_router/classifier_hook.py",
+    "primary_router/scoring_router.py",
+    "primary_router/context/__init__.py",
+    "primary_router/context/runtime.py",
+    "primary_router/context/daemon.py",
+    "primary_router/test_context_daemon.py"
+  ],
+  "new_files": [
+    "primary_router/test_classifier_hook.py",
+    "primary_router/context/checkpoints.py",
+    "primary_router/context/transcript_watcher.py",
+    "primary_router/context/events.py",
+    "primary_router/context/transcript_parser.py",
+    "primary_router/context/session_memory.py",
+    "primary_router/context/synchronizer.py",
+    "primary_router/test_transcript_watcher.py",
+    "primary_router/test_transcript_parser.py",
+    "primary_router/test_session_memory.py"
+  ],
+  "key_modules": [
+    {"path": "primary_router/classifier_hook.py", "responsibility": "Hot-path Claude hook routing and best-effort UDP notification."},
+    {"path": "primary_router/context/daemon.py", "responsibility": "Session runtime ownership, UDP receiving, and continuous synchronization scheduling."},
+    {"path": "primary_router/context/transcript_watcher.py", "responsibility": "Incremental byte-offset JSONL tailing."},
+    {"path": "primary_router/context/transcript_parser.py", "responsibility": "Typed event conversion from already-read transcript lines."},
+    {"path": "primary_router/context/session_memory.py", "responsibility": "Bounded in-memory current-session context."}
+  ],
+  "key_classes": [
+    "PromptRouter", "ScoringRouter", "HookPayload", "HookNotification", "ContextDaemon", "ContextDaemonServer", "SessionRuntime", "CheckpointStore", "TranscriptWatcher", "TranscriptParser", "SessionMemory", "ContextSynchronizer"
+  ],
+  "important_interfaces": [
+    "classifier_hook.parse_hook_payload(raw) -> HookPayload",
+    "classifier_hook.classify_payload(payload) -> HookNotification",
+    "ContextDaemon.receive(notification) -> SessionRuntime",
+    "ContextDaemon.start_watching(interval_seconds)",
+    "create_context_daemon(checkpoint_path) -> ContextDaemon",
+    "TranscriptWatcher(runtime) -> None",
+    "TranscriptParser.drain(runtime) -> list[TranscriptEvent]",
+    "SessionMemory.apply(event)",
+    "SessionMemory.snapshot() -> SessionMemorySnapshot"
+  ],
+  "pending_tasks": [
+    "Phase 6 ChromaDB integration", "Phase 7 retrieval engine", "Phase 8 side-model retrieval integration", "restore Python runtime", "run tests"
+  ],
+  "known_risks": [
+    "No usable Python interpreter is installed or registered.",
+    "Current venv references a missing Python 3.10 executable.",
+    "chromadb and an embedding provider are absent.",
+    "Tests are unexecuted; only static diff validation was available.",
+    "Unrelated untracked workspace artifacts must be preserved."
+  ],
+  "assumptions": [
+    "Claude transcripts are append-only JSONL.",
+    "First watcher observation should start at EOF, matching tail -f behavior.",
+    "Chroma documents must be isolated by session_id.",
+    "The hook must never block on daemon, transcript, embedding, or model work."
+  ],
+  "testing_status": "Tests added for completed phases but not executed because no usable Python runtime is available; git diff --check passed before each commit.",
+  "next_commit_title": "Add session-scoped Chroma semantic indexing",
+  "recommended_entry_point": "Read HANDOFF.md, then begin with primary_router/context/synchronizer.py and primary_router/context/events.py before adding primary_router/retrieval/."
+}
