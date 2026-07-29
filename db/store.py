@@ -66,20 +66,52 @@ def init(conn):
     conn.commit()
 
 
+def _meta_get(conn, key, default=None):
+    row = conn.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
+    return row[0] if row else default
+
+
+def _meta_set(conn, key, value):
+    conn.execute(
+        "INSERT INTO meta(key, value) VALUES(?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+        (key, str(value)),
+    )
+    conn.commit()
+
+
+def _meta_int(conn, key, default=0):
+    v = _meta_get(conn, key)
+    return int(v) if v is not None and str(v).lstrip("-").isdigit() else default
+
+
 def mark_claude_done(conn):
     """Bump a counter each time Claude finishes a response (Stop hook calls this).
     The UI watches this counter to blink a 'Claude responded' signal."""
-    row = conn.execute(
-        "SELECT value FROM meta WHERE key='claude_done_seq'"
-    ).fetchone()
-    n = (int(row[0]) if row and str(row[0]).isdigit() else 0) + 1
-    conn.execute(
-        "INSERT INTO meta(key, value) VALUES('claude_done_seq', ?) "
-        "ON CONFLICT(key) DO UPDATE SET value=?",
-        (str(n), str(n)),
-    )
-    conn.commit()
+    n = _meta_int(conn, "claude_done_seq") + 1
+    _meta_set(conn, "claude_done_seq", n)
     return n
+
+
+def mark_claude_ack(conn):
+    """Acknowledge the latest Claude response: set the ack watermark to the
+    current done counter. The classifier hook calls this on every new user
+    prompt — sending anything means the user is active again, so the
+    'Claude responded' banner should clear. The UI shows the banner only while
+    claude_done_seq > claude_done_ack."""
+    _meta_set(conn, "claude_done_ack", _meta_int(conn, "claude_done_seq"))
+
+
+def set_enabled(conn, on):
+    """Turn PAPeR deflection on/off (the UI toggle writes this; the classifier
+    hook reads it and passes everything through to Claude when off)."""
+    _meta_set(conn, "paper_enabled", "1" if on else "0")
+    return bool(on)
+
+
+def is_enabled(conn):
+    """Default ON. Only an explicit '0' disables."""
+    return _meta_get(conn, "paper_enabled", "1") != "0"
 
 
 # ---------------------------------------------------------------------------
@@ -130,13 +162,10 @@ def get_state(conn, *, recent=20):
         "FROM savings WHERE kind='rtk_compress'"
     ).fetchone()[0]
 
-    done_row = conn.execute(
-        "SELECT value FROM meta WHERE key='claude_done_seq'"
-    ).fetchone()
-    claude_done_seq = int(done_row[0]) if done_row and str(done_row[0]).isdigit() else 0
-
     return {
-        "claude_done_seq": claude_done_seq,
+        "claude_done_seq": _meta_int(conn, "claude_done_seq"),
+        "claude_done_ack": _meta_int(conn, "claude_done_ack"),
+        "enabled": is_enabled(conn),
         "provider": {
             "vendor": os.environ.get("SIDECAR_VENDOR", "gemini"),
             "model": os.environ.get("SIDECAR_MODEL", ""),

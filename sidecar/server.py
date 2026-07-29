@@ -67,6 +67,30 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send(404, "not found", "text/plain")
 
+    def do_POST(self):
+        # Control actions only (not a chat input surface). Currently: flip the
+        # PAPeR enable/disable toggle that the classifier hook reads.
+        path = self.path.split("?", 1)[0]
+        if path == "/toggle":
+            try:
+                length = int(self.headers.get("Content-Length", "0") or "0")
+                body = self.rfile.read(length) if length else b"{}"
+                want = json.loads(body or b"{}").get("enabled")
+                conn = store.connect()
+                try:
+                    target = (not store.is_enabled(conn)) if want is None \
+                        else bool(want)          # no value -> flip; else set
+                    new = store.set_enabled(conn, target)
+                finally:
+                    conn.close()
+                self._send(200, json.dumps({"ok": True, "enabled": new}),
+                           "application/json")
+            except Exception as e:
+                self._send(500, json.dumps({"ok": False, "error": str(e)}),
+                           "application/json")
+            return
+        self._send(404, "not found", "text/plain")
+
     def log_message(self, *args):
         pass  # quiet; flip to super().log_message for debugging
 

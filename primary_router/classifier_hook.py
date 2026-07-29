@@ -151,6 +151,24 @@ def _log_deflection(prompt, answer, usage, vendor, model):
         pass  # counter is a nicety; never let it break the answer
 
 
+def _paper_enabled():
+    """On every prompt: acknowledge any prior 'Claude responded' signal (the user
+    is active again) and report whether PAPeR is enabled. Fail-open -> if the DB
+    is unavailable, treat PAPeR as ON so behavior is unchanged."""
+    try:
+        import os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+        from db import store
+        conn = store.connect()
+        try:
+            store.mark_claude_ack(conn)
+            return store.is_enabled(conn)
+        finally:
+            conn.close()
+    except Exception:
+        return True
+
+
 def _deflect(prompt, data):
     """Answer a question off-quota and block() with the answer, inline."""
     import answer_pipeline
@@ -171,6 +189,11 @@ def main():
 
     data = json.loads(sys.stdin.read() or "{}")
     prompt = data.get("prompt", "")
+
+    # Enable/disable toggle (and 'user is active' ack). When paused, PAPeR does
+    # nothing — every prompt goes straight to Claude.
+    if not _paper_enabled():
+        pass_through()
 
     decision = route(prompt)
 
